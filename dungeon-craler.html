@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adventure Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #333;
+            font-family: Arial, sans-serif;
+            color: white;
+        }
+        #gameContainer {
+            position: relative;
+        }
+        canvas {
+            background-color: #000;
+            border: 2px solid #555;
+            background-image: url('data:image/svg+xml;utf8,<svg width="32" height="32" xmlns="http://www.w3.org/2000/svg"><rect width="32" height="32" fill="%23000"/><path d="M0,32 L32,0" stroke="%23333" stroke-width="2"/></svg>');
+            background-repeat: repeat;
+        }
+        #startScreen, #levelUpScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        #startScreen h1, #levelUpScreen h1 {
+            color: #fc0;
+            margin-bottom: 30px;
+        }
+        button {
+            background-color: #fc0;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .stat-container {
+            display: flex;
+            margin: 10px 0;
+        }
+        .stat-container label {
+            width: 120px;
+            text-align: right;
+            margin-right: 10px;
+        }
+        .stat-container .points {
+            display: flex;
+            align-items: center;
+        }
+        #pointsRemaining {
+            margin-top: 20px;
+            color: #fc0;
+        }
+        #gameStats {
+            position: fixed; /* Changed from absolute to fixed */
+            top: 20px;       /* Move it further up */
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 16px;
+            pointer-events: none;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <div id="gameStats">
+            Level: <span id="level">1</span> | 
+            XP: <span id="xp">0</span> |
+            Health: <span id="health">100</span>/100 |
+            STR: <span id="strength">5</span> | 
+            INT: <span id="intelligence">5</span> | 
+            LCK: <span id="luck">5</span>
+        </div>
+        
+        <div id="startScreen">
+            <h1>Adventure Game</h1>
+            <p>Explore, fight monsters, and level up!</p>
+            <div class="stat-container">
+                <label for="strengthPoints">Strength:</label>
+                <div class="points">
+                    <button class="subtract" data-stat="strength" disabled>-</button>
+                    <span id="strengthPoints">5</span>
+                    <button class="add" data-stat="strength">+</button>
+                </div>
+            </div>
+            <div class="stat-container">
+                <label for="intelligencePoints">Intelligence:</label>
+                <div class="points">
+                    <button class="subtract" data-stat="intelligence" disabled>-</button>
+                    <span id="intelligencePoints">5</span>
+                    <button class="add" data-stat="intelligence">+</button>
+                </div>
+            </div>
+            <div class="stat-container">
+                <label for="luckPoints">Luck:</label>
+                <div class="points">
+                    <button class="subtract" data-stat="luck" disabled>-</button>
+                    <span id="luckPoints">5</span>
+                    <button class="add" data-stat="luck">+</button>
+                </div>
+            </div>
+            <div id="pointsRemaining">Points remaining: <span id="startingPoints">5</span></div>
+            <button id="startGame">Start Game</button>
+        </div>
+        
+        <div id="levelUpScreen" style="display: none;">
+            <h1>Level Up!</h1>
+            <p>You've earned enough XP to level up! Distribute your point:</p>
+            <div class="stat-container">
+                <label for="levelUpStrength">Strength:</label>
+                <div class="points">
+                    <span id="currentStrength">5</span> →
+                    <button class="levelUp" data-stat="strength">+</button>
+                </div>
+            </div>
+            <div class="stat-container">
+                <label for="levelUpIntelligence">Intelligence:</label>
+                <div class="points">
+                    <span id="currentIntelligence">5</span> →
+                    <button class="levelUp" data-stat="intelligence">+</button>
+                </div>
+            </div>
+            <div class="stat-container">
+                <label for="levelUpLuck">Luck:</label>
+                <div class="points">
+                    <span id="currentLuck">5</span> →
+                    <button class="levelUp" data-stat="luck">+</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game Constants
+        const TILE_SIZE = 32;
+        const PLAYER_SIZE = 24;
+        const MONSTER_SIZE = 24;
+        const ATTACK_RADIUS = 50;
+        const ATTACK_COOLDOWN = 500; // ms
+        const XP_LEVELS = [0, 100, 250, 450, 700, 1000, 1500, 2500, 4000, 6000]; // XP needed for each level
+        
+        // Game Variables
+        let canvas, ctx;
+        let player;
+        let currentLevel = 1;
+        let currentMap = [];
+        let monsters = [];
+        let exits = [];
+        let collectibles = [];
+        let lastAttackTime = 0;
+        let keys = {};
+        let gameStarted = false;
+        let levelingUp = false;
+        
+        // Example SVGs as data URLs (replace with your own SVGs or file paths)
+        const playerSVG = 'data:image/svg+xml;utf8,<svg width="24" height="24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" fill="%230095dd" stroke="white" stroke-width="2"/></svg>';
+        const monsterSVGs = [
+            // Level 1-2: Green blob
+            'data:image/svg+xml;utf8,<svg width="24" height="24" xmlns="http://www.w3.org/2000/svg"><ellipse cx="12" cy="14" rx="10" ry="8" fill="%2355aa55" stroke="black" stroke-width="2"/></svg>',
+            // Level 3-4: Yellow bug
+            'data:image/svg+xml;utf8,<svg width="24" height="24" xmlns="http://www.w3.org/2000/svg"><ellipse cx="12" cy="12" rx="10" ry="8" fill="%23aaaa55" stroke="black" stroke-width="2"/><line x1="2" y1="12" x2="22" y2="12" stroke="black" stroke-width="2"/></svg>',
+            // Level 5-6: Red brute
+            'data:image/svg+xml;utf8,<svg width="24" height="24" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="16" height="16" fill="%23aa5555" stroke="black" stroke-width="2"/></svg>',
+            // Level 7+: Purple demon
+            'data:image/svg+xml;utf8,<svg width="24" height="24" xmlns="http://www.w3.org/2000/svg"><ellipse cx="12" cy="12" rx="10" ry="10" fill="%23aa55aa" stroke="black" stroke-width="2"/><polygon points="6,2 12,8 18,2" fill="%23aa55aa" stroke="black" stroke-width="1"/></svg>'
+        ];
+        const wallSVG = 'data:image/svg+xml;utf8,<svg width="32" height="32" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="28" height="28" rx="4" fill="%23555" stroke="white" stroke-width="1"/></svg>';
+        const healSVG = 'data:image/svg+xml;utf8,<svg width="24" height="24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="11" fill="%23fff" stroke="%2300c853" stroke-width="2"/><rect x="10" y="6" width="4" height="12" fill="%2300c853"/><rect x="6" y="10" width="12" height="4" fill="%2300c853"/></svg>';
+
+        // Add this SVG for the exit/door:
+        const exitSVG = 'data:image/svg+xml;utf8,<svg width="32" height="32" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="6" width="16" height="20" rx="3" fill="%23c90" stroke="%23630" stroke-width="2"/><rect x="14" y="18" width="4" height="8" fill="%23fff"/><circle cx="21" cy="16" r="2" fill="%23630"/></svg>';
+
+        const playerImg = new Image();
+        playerImg.src = playerSVG;
+
+        const monsterImgs = monsterSVGs.map(svg => {
+            const img = new Image();
+            img.src = svg;
+            return img;
+        });
+
+        const wallImg = new Image();
+        wallImg.src = wallSVG;
+
+        const healImg = new Image();
+        healImg.src = healSVG;
+
+        // Add this for the exit/door:
+        const exitImg = new Image();
+        exitImg.src = exitSVG;
+        
+        // Initialize game when window loads
+        window.onload = function() {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            
+            setupStartScreen();
+        };
+        
+        function setupStartScreen() {
+            // Set up attribute point allocation
+            let startingPoints = 5;
+            let attributes = {
+                strength: 5,
+                intelligence: 5,
+                luck: 5
+            };
+            
+            document.getElementById('startingPoints').textContent = startingPoints;
+            
+            // Add event listeners for attribute buttons
+            document.querySelectorAll('.add').forEach(button => {
+                button.addEventListener('click', function() {
+                    const stat = this.dataset.stat;
+                    if (startingPoints > 0) {
+                        attributes[stat]++;
+                        startingPoints--;
+                        document.getElementById(`${stat}Points`).textContent = attributes[stat];
+                        document.getElementById('startingPoints').textContent = startingPoints;
+                        
+                        if (startingPoints === 0) {
+                            document.querySelectorAll('.add').forEach(btn => btn.disabled = true);
+                        }
+                        
+                        document.querySelector(`.subtract[data-stat="${stat}"]`).disabled = false;
+                    }
+                });
+            });
+            
+            document.querySelectorAll('.subtract').forEach(button => {
+                button.addEventListener('click', function() {
+                    const stat = this.dataset.stat;
+                    if (attributes[stat] > 1) {
+                        attributes[stat]--;
+                        startingPoints++;
+                        document.getElementById(`${stat}Points`).textContent = attributes[stat];
+                        document.getElementById('startingPoints').textContent = startingPoints;
+                        
+                        if (attributes[stat] === 1) {
+                            this.disabled = true;
+                        }
+                        
+                        document.querySelectorAll('.add').forEach(btn => btn.disabled = false);
+                    }
+                });
+            });
+            
+            // Start game button
+            document.getElementById('startGame').addEventListener('click', function() {
+                initGame(attributes);
+                document.getElementById('startScreen').style.display = 'none';
+                gameStarted = true;
+            });
+        }
+        
+        function setupLevelUpScreen() {
+            levelingUp = true;
+            
+            // Update current stats display
+            document.getElementById('currentStrength').textContent = player.strength;
+            document.getElementById('currentIntelligence').textContent = player.intelligence;
+            document.getElementById('currentLuck').textContent = player.luck;
+            
+            // Show level up screen
+            document.getElementById('levelUpScreen').style.display = 'flex';
+            
+            // Add event listeners for level up buttons
+            document.querySelectorAll('.levelUp').forEach(button => {
+                button.addEventListener('click', function() {
+                    const stat = this.dataset.stat;
+                    player[stat]++;
+                    updateStatsDisplay();
+                    document.getElementById('levelUpScreen').style.display = 'none';
+                    levelingUp = false;
+                });
+            });
+        }
+        
+        function initGame(attributes) {
+            // Initialize player
+            player = {
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                width: PLAYER_SIZE,
+                height: PLAYER_SIZE,
+                speed: 3,
+                health: 100,
+                maxHealth: 100,
+                strength: attributes.strength,
+                intelligence: attributes.intelligence,
+                luck: attributes.luck,
+                xp: 0,
+                level: 1
+            };
+            
+            // Update stats display
+            updateStatsDisplay();
+            
+            // Generate first level
+            generateLevel();
+            
+            // Set up keyboard input
+            window.addEventListener('keydown', function(e) {
+                keys[e.key] = true;
+            });
+            
+            window.addEventListener('keyup', function(e) {
+                keys[e.key] = false;
+            });
+            
+            // Start game loop
+            gameLoop();
+        }
+        
+        function updateStatsDisplay() {
+            document.getElementById('level').textContent = player.level;
+            document.getElementById('xp').textContent = player.xp;
+            document.getElementById('health').textContent = player.health;
+            document.getElementById('strength').textContent = player.strength;
+            document.getElementById('intelligence').textContent = player.intelligence;
+            document.getElementById('luck').textContent = player.luck;
+        }
+        
+        function generateLevel() {
+            // Clear existing arrays
+            currentMap = [];
+            monsters = [];
+            exits = [];
+            collectibles = []; // Clear collectibles
+            
+            // Create empty map grid
+            for (let y = 0; y < canvas.height / TILE_SIZE; y++) {
+                currentMap[y] = [];
+                for (let x = 0; x < canvas.width / TILE_SIZE; x++) {
+                    // Border walls
+                    if (x === 0 || y === 0 || x === Math.floor(canvas.width / TILE_SIZE) - 1 || y === Math.floor(canvas.height / TILE_SIZE) - 1) {
+                        currentMap[y][x] = 1; // Wall
+                    } else {
+                        // Random walls (10% chance)
+                        currentMap[y][x] = Math.random() < 0.1 ? 1 : 0;
+                    }
+                }
+            }
+            
+            // Create monsters based on current level
+            const numMonsters = 5 + Math.floor(currentLevel * 1.5);
+            for (let i = 0; i < numMonsters; i++) {
+                createMonster();
+            }
+            
+            // Create exits (2-4 exits per level)
+            const numExits = 2 + Math.floor(Math.random() * 3);
+            for (let i = 0; i < numExits; i++) {
+                let x, y;
+                let validPosition = false;
+                
+                // Find a valid position on the edge of the map
+                while (!validPosition) {
+                    const side = Math.floor(Math.random() * 4); // 0: top, 1: right, 2: bottom, 3: left
+                    
+                    switch (side) {
+                        case 0: // Top
+                            x = 1 + Math.floor(Math.random() * (canvas.width / TILE_SIZE - 2));
+                            y = 0;
+                            break;
+                        case 1: // Right
+                            x = Math.floor(canvas.width / TILE_SIZE) - 1;
+                            y = 1 + Math.floor(Math.random() * (canvas.height / TILE_SIZE - 2));
+                            break;
+                        case 2: // Bottom
+                            x = 1 + Math.floor(Math.random() * (canvas.width / TILE_SIZE - 2));
+                            y = Math.floor(canvas.height / TILE_SIZE) - 1;
+                            break;
+                        case 3: // Left
+                            x = 0;
+                            y = 1 + Math.floor(Math.random() * (canvas.height / TILE_SIZE - 2));
+                            break;
+                    }
+                    
+                    // Check if position is already an exit
+                    validPosition = true;
+                    for (let exit of exits) {
+                        if (exit.tileX === x && exit.tileY === y) {
+                            validPosition = false;
+                            break;
+                        }
+                    }
+                }
+                
+                // Add exit
+                exits.push({
+                    tileX: x,
+                    tileY: y,
+                    x: x * TILE_SIZE,
+                    y: y * TILE_SIZE,
+                    width: TILE_SIZE,
+                    height: TILE_SIZE
+                });
+                
+                // Clear wall at exit position
+                currentMap[y][x] = 2; // Exit tile
+            }
+            
+            // Place collectibles (healing items)
+            const numCollectibles = 2 + Math.floor(Math.random() * 3);
+            for (let i = 0; i < numCollectibles; i++) {
+                let x, y, valid = false;
+                while (!valid) {
+                    x = 1 + Math.floor(Math.random() * (canvas.width / TILE_SIZE - 2));
+                    y = 1 + Math.floor(Math.random() * (canvas.height / TILE_SIZE - 2));
+                    // Only place on empty tiles
+                    if (currentMap[y][x] === 0) {
+                        // Don't overlap with player start
+                        const px = Math.floor(player.x / TILE_SIZE);
+                        const py = Math.floor(player.y / TILE_SIZE);
+                        if (Math.abs(x - px) > 2 || Math.abs(y - py) > 2) {
+                            valid = true;
+                        }
+                    }
+                }
+                collectibles.push({
+                    tileX: x,
+                    tileY: y,
+                    x: x * TILE_SIZE + TILE_SIZE/2,
+                    y: y * TILE_SIZE + TILE_SIZE/2,
+                    width: 24,
+                    height: 24,
+                    healAmount: 25
+                });
+            }
+            
+            // Place player in a clear spot
+            placePlayerInClearSpot();
+        }
+        
+        function createMonster() {
+            let x, y;
+            let validPosition = false;
+
+            while (!validPosition) {
+                x = TILE_SIZE + Math.floor(Math.random() * (canvas.width - 2 * TILE_SIZE));
+                y = TILE_SIZE + Math.floor(Math.random() * (canvas.height - 2 * TILE_SIZE));
+
+                const tileX = Math.floor(x / TILE_SIZE);
+                const tileY = Math.floor(y / TILE_SIZE);
+
+                // Check if position is clear
+                if (currentMap[tileY][tileX] === 0) {
+                    // Check distance from player (must be at least 3 tiles away)
+                    const playerTileX = Math.floor(player.x / TILE_SIZE);
+                    const playerTileY = Math.floor(player.y / TILE_SIZE);
+                    const distance = Math.sqrt(Math.pow(tileX - playerTileX, 2) + Math.pow(tileY - playerTileY, 2));
+
+                    if (distance >= 3) {
+                        validPosition = true;
+                    }
+                }
+            }
+
+            // Determine monster difficulty based on current level
+            let difficulty = Math.random();
+            let monsterLevel;
+
+            if (difficulty < 0.6) {
+                monsterLevel = Math.max(1, Math.floor(Math.random() * (currentLevel + 1)));
+            } else if (difficulty < 0.9) {
+                monsterLevel = currentLevel + Math.floor(Math.random() * 2) + 1;
+            } else {
+                monsterLevel = currentLevel + Math.floor(Math.random() * 3) + 3;
+            }
+
+            // Choose SVG based on monster level
+            let imgIndex = 0;
+            if (monsterLevel >= 7) imgIndex = 3;
+            else if (monsterLevel >= 5) imgIndex = 2;
+            else if (monsterLevel >= 3) imgIndex = 1;
+            // else imgIndex = 0;
+
+            const monsterImgObj = new Image();
+            monsterImgObj.src = monsterSVGs[imgIndex];
+
+            monsters.push({
+                x: x,
+                y: y,
+                width: MONSTER_SIZE,
+                height: MONSTER_SIZE,
+                speed: 1 + Math.random() * 0.5,
+                health: 30 + (monsterLevel * 15),
+                maxHealth: 30 + (monsterLevel * 15),
+                damage: 5 + (monsterLevel * 2),
+                xpValue: 10 + (monsterLevel * 5),
+                level: monsterLevel,
+                color: getMonsterColor(monsterLevel, currentLevel),
+                img: monsterImgObj // <-- assign image here
+            });
+        }
+        
+        function getMonsterColor(monsterLevel, playerLevel) {
+            // Determine color based on level difference
+            const levelDiff = monsterLevel - playerLevel;
+            
+            if (levelDiff < -1) {
+                return "#55aa55"; // Easy - Green
+            } else if (levelDiff <= 1) {
+                return "#aaaa55"; // Balanced - Yellow
+            } else if (levelDiff <= 3) {
+                return "#aa5555"; // Hard - Red
+            } else {
+                return "#aa55aa"; // Very Hard - Purple
+            }
+        }
+        
+        function placePlayerInClearSpot() {
+            let x, y;
+            let validPosition = false;
+            
+            while (!validPosition) {
+                x = TILE_SIZE * 2 + Math.floor(Math.random() * (canvas.width - 4 * TILE_SIZE));
+                y = TILE_SIZE * 2 + Math.floor(Math.random() * (canvas.height - 4 * TILE_SIZE));
+                
+                const tileX = Math.floor(x / TILE_SIZE);
+                const tileY = Math.floor(y / TILE_SIZE);
+                
+                // Check 3x3 area around position for walls
+                let areaIsClear = true;
+                for (let checkY = tileY - 1; checkY <= tileY + 1; checkY++) {
+                    for (let checkX = tileX - 1; checkX <= tileX + 1; checkX++) {
+                        if (currentMap[checkY][checkX] === 1) {
+                            areaIsClear = false;
+                            break;
+                        }
+                    }
+                    if (!areaIsClear) break;
+                }
+                
+                if (areaIsClear) {
+                    validPosition = true;
+                }
+            }
+            
+            player.x = x;
+            player.y = y;
+        }
+        
+        function gameLoop() {
+            if (!gameStarted || levelingUp) {
+                requestAnimationFrame(gameLoop);
+                return;
+            }
+            
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function update() {
+            // Player movement
+            const newX = player.x;
+            const newY = player.y;
+            
+            if (keys['ArrowUp'] || keys['w']) player.y -= player.speed;
+            if (keys['ArrowDown'] || keys['s']) player.y += player.speed;
+            if (keys['ArrowLeft'] || keys['a']) player.x -= player.speed;
+            if (keys['ArrowRight'] || keys['d']) player.x += player.speed;
+            
+            // Collision detection with walls
+            const playerTileX = Math.floor(player.x / TILE_SIZE);
+            const playerTileY = Math.floor(player.y / TILE_SIZE);
+            
+            // Check each corner of the player
+            const corners = [
+                { x: player.x - player.width/2, y: player.y - player.height/2 }, // Top-left
+                { x: player.x + player.width/2, y: player.y - player.height/2 }, // Top-right
+                { x: player.x - player.width/2, y: player.y + player.height/2 }, // Bottom-left
+                { x: player.x + player.width/2, y: player.y + player.height/2 }  // Bottom-right
+            ];
+            
+            for (let corner of corners) {
+                const tileX = Math.floor(corner.x / TILE_SIZE);
+                const tileY = Math.floor(corner.y / TILE_SIZE);
+                
+                if (tileX < 0 || tileY < 0 || tileX >= currentMap[0].length || tileY >= currentMap.length) {
+                    // Out of bounds, revert position
+                    player.x = newX;
+                    player.y = newY;
+                    break;
+                }
+                
+                if (currentMap[tileY][tileX] === 1) {
+                    // Collision with wall, revert position
+                    player.x = newX;
+                    player.y = newY;
+                    break;
+                }
+            }
+            
+            // Check collision with exits
+            for (let exit of exits) {
+                if (checkCollision(player, exit)) {
+                    // Move to next level
+                    currentLevel++;
+                    generateLevel();
+                    return;
+                }
+            }
+            
+            // Monster update and combat
+            const currentTime = Date.now();
+            let monstersToRemove = [];
+            
+            for (let i = 0; i < monsters.length; i++) {
+                const monster = monsters[i];
+                
+                // Calculate distance to player
+                const dx = player.x - monster.x;
+                const dy = player.y - monster.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                // Move towards player if within "sight" range
+                if (distance < TILE_SIZE * 5) {
+                    const angle = Math.atan2(dy, dx);
+                    
+                    // Calculate potential new position
+                    const newMonsterX = monster.x + Math.cos(angle) * monster.speed;
+                    const newMonsterY = monster.y + Math.sin(angle) * monster.speed;
+                    
+                    // Check if new position is valid (not in a wall)
+                    const tileX = Math.floor(newMonsterX / TILE_SIZE);
+                    const tileY = Math.floor(newMonsterY / TILE_SIZE);
+                    
+                    if (tileX >= 0 && tileY >= 0 && tileX < currentMap[0].length && tileY < currentMap.length && currentMap[tileY][tileX] !== 1) {
+                        monster.x = newMonsterX;
+                        monster.y = newMonsterY;
+                    }
+                }
+                
+                // Combat - if player is in attack range and cooldown is over
+                if (distance < ATTACK_RADIUS && currentTime - lastAttackTime > ATTACK_COOLDOWN) {
+                    lastAttackTime = currentTime;
+                    
+                    // Player attacks monster
+                    const damageMultiplier = 1 + (player.strength * 0.1);
+                    const critChance = player.luck * 0.02;
+                    let damage = 10 * damageMultiplier;
+                    
+                    // Critical hit
+                    if (Math.random() < critChance) {
+                        damage *= 2;
+                    }
+                    
+                    monster.health -= Math.floor(damage);
+                    
+                    // Monster attacks player
+                    if (monster.health > 0) {
+                        const dodgeChance = player.luck * 0.01;
+                        
+                        if (Math.random() > dodgeChance) {
+                            player.health -= monster.damage;
+                            
+                            // Update health display
+                            document.getElementById('health').textContent = player.health;
+                            
+                            // Check player death
+                            if (player.health <= 0) {
+                                // Game over: return to start screen
+                                gameStarted = false;
+                                document.getElementById('startScreen').style.display = 'flex';
+                                // Optionally reset player stats, XP, etc. here if desired
+                                return;
+                            }
+                        }
+                    }
+                    
+                    // Check if monster died
+                    if (monster.health <= 0) {
+                        // Gain XP
+                        player.xp += monster.xpValue;
+                        document.getElementById('xp').textContent = player.xp;
+                        
+                        // Check if level up
+                        if (player.level < XP_LEVELS.length - 1 && player.xp >= XP_LEVELS[player.level]) {
+                            player.level++;
+                            document.getElementById('level').textContent = player.level;
+                            setupLevelUpScreen();
+                        }
+                        
+                        monstersToRemove.push(i);
+                    }
+                }
+            }
+            
+            // Remove dead monsters (in reverse order to avoid index issues)
+            for (let i = monstersToRemove.length - 1; i >= 0; i--) {
+                monsters.splice(monstersToRemove[i], 1);
+            }
+            
+            // Check if all monsters are dead
+            if (monsters.length === 0) {
+                // Spawn more monsters
+                const numNewMonsters = 2 + Math.floor(Math.random() * 3);
+                for (let i = 0; i < numNewMonsters; i++) {
+                    createMonster();
+                }
+            }
+            
+            // Check for collectible pickup
+            for (let i = collectibles.length - 1; i >= 0; i--) {
+                const item = collectibles[i];
+                // Simple collision check (center distance)
+                const dx = player.x - item.x;
+                const dy = player.y - item.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < TILE_SIZE / 2) {
+                    // Heal player
+                    player.health = Math.min(player.maxHealth, player.health + item.healAmount);
+                    document.getElementById('health').textContent = player.health;
+                    collectibles.splice(i, 1);
+                }
+            }
+        }
+        
+        function render() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw map
+            for (let y = 0; y < currentMap.length; y++) {
+                for (let x = 0; x < currentMap[y].length; x++) {
+                    const tileType = currentMap[y][x];
+                    if (tileType === 1) {
+                        // Wall - draw SVG instead of fillRect
+                        ctx.drawImage(wallImg, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    } else if (tileType === 2) {
+                        // Exit - draw SVG door
+                        ctx.drawImage(exitImg, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    }
+                }
+            }
+            
+            // Draw monsters
+            for (let monster of monsters) {
+                // Draw monster SVG (use monster.img)
+                ctx.drawImage(
+                    monster.img,
+                    monster.x - monster.width/2,
+                    monster.y - monster.height/2,
+                    monster.width,
+                    monster.height
+                );
+                
+                // Draw health bar
+                const healthPercentage = monster.health / monster.maxHealth;
+                const barWidth = monster.width;
+                
+                ctx.fillStyle = '#555';
+                ctx.fillRect(monster.x - barWidth/2, monster.y - monster.height/2 - 8, barWidth, 4);
+                
+                ctx.fillStyle = healthPercentage > 0.5 ? '#5d5' : (healthPercentage > 0.25 ? '#dd5' : '#d55');
+                ctx.fillRect(monster.x - barWidth/2, monster.y - monster.height/2 - 8, barWidth * healthPercentage, 4);
+                
+                // Draw level
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('L' + monster.level, monster.x, monster.y - monster.height/2 - 12);
+            }
+            
+            // Draw collectibles (healing items)
+            for (let item of collectibles) {
+                ctx.drawImage(
+                    healImg,
+                    item.x - item.width/2,
+                    item.y - item.height/2,
+                    item.width,
+                    item.height
+                );
+            }
+            
+            // Draw attack radius when monster is in range
+            let monsterInRange = false;
+            for (let monster of monsters) {
+                const dx = player.x - monster.x;
+                const dy = player.y - monster.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < ATTACK_RADIUS) {
+                    monsterInRange = true;
+                    break;
+                }
+            }
+            
+            if (monsterInRange) {
+                ctx.beginPath();
+                ctx.arc(player.x, player.y, ATTACK_RADIUS, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+            
+            // Draw player
+            ctx.drawImage(
+                playerImg,
+                player.x - player.width/2,
+                player.y - player.height/2,
+                player.width,
+                player.height
+            );
+            
+            // Draw player health bar
+            const playerHealthPercentage = player.health / player.maxHealth;
+            const playerBarWidth = player.width * 1.5;
+            
+            ctx.fillStyle = '#555';
+            ctx.fillRect(player.x - playerBarWidth/2, player.y - player.height/2 - 8, playerBarWidth, 4);
+            
+            ctx.fillStyle = playerHealthPercentage > 0.5 ? '#5d5' : (playerHealthPercentage > 0.25 ? '#dd5' : '#d55');
+            ctx.fillRect(player.x - playerBarWidth/2, player.y - player.height/2 - 8, playerBarWidth * playerHealthPercentage, 4);
+        }
+        
+        function checkCollision(obj1, obj2) {
+            return (
+                obj1.x + obj1.width/2 > obj2.x - obj2.width/2 &&
+                obj1.x - obj1.width/2 < obj2.x + obj2.width/2 &&
+                obj1.y + obj1.height/2 > obj2.y - obj2.height/2 &&
+                obj1.y - obj1.height/2 < obj2.y + obj2.height/2
+            );
+        }
+    </script>
+</body>
+</html>
