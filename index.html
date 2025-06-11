@@ -78,6 +78,33 @@
             pointer-events: none;
             z-index: 10;
         }
+        /* Add styles for death modal */
+        #deathModal {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        #deathModal h1 {
+            color: #f33;
+            margin-bottom: 20px;
+        }
+        #deathModal button {
+            background: #fc0;
+            color: #000;
+            font-weight: bold;
+            padding: 10px 30px;
+            border: none;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -148,6 +175,12 @@
                     <button class="levelUp" data-stat="luck">+</button>
                 </div>
             </div>
+        </div>
+        
+        <!-- Add death modal here -->
+        <div id="deathModal" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:20; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+            <h1 style="color:#f33; margin-bottom:20px;">You Died</h1>
+            <button id="deathModalBtn" style="background:#fc0; color:#000; font-weight:bold; padding:10px 30px;">OK</button>
         </div>
     </div>
 
@@ -683,10 +716,7 @@
                             
                             // Check player death
                             if (player.health <= 0) {
-                                // Game over: return to start screen
-                                gameStarted = false;
-                                document.getElementById('startScreen').style.display = 'flex';
-                                // Optionally reset player stats, XP, etc. here if desired
+                                showDeathModal();
                                 return;
                             }
                         }
@@ -846,6 +876,19 @@
                 obj1.y - obj1.height/2 < obj2.y + obj2.height/2
             );
         }
+        
+        // Add this function to handle death modal
+        function showDeathModal() {
+            document.getElementById('deathModal').style.display = 'flex';
+            // Prevent starting a new game until modal is closed
+            gameStarted = false;
+        }
+        
+        document.getElementById('deathModalBtn').onclick = function() {
+            document.getElementById('deathModal').style.display = 'none';
+            // Show start screen for new game
+            document.getElementById('startScreen').style.display = 'flex';
+        };
     </script>
 </body>
 </html>
