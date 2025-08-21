@@ -290,6 +290,12 @@ class GameScene extends Phaser.Scene {
 
         this.player.setCollideWorldBounds(true);
         this.player.body.setSize(12, 12);
+
+        // --- MOVEMENT PHYSICS SETUP ---
+        // Set a max velocity and drag to create smooth acceleration and deceleration
+        this.player.body.setMaxVelocity(120); // The maximum speed the player can reach
+        this.player.body.setDrag(800); // The rate of deceleration (higher means faster stopping)
+
         this.cursors = this.input.keyboard.createCursorKeys();
         this.spaceBar = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
@@ -337,13 +343,26 @@ class GameScene extends Phaser.Scene {
     }
 
     handlePlayerMovement() {
-        this.player.setVelocity(0);
-        const speed = 100;
-        if (this.cursors.left.isDown || this.touchControls.left) { this.player.setVelocityX(-speed); this.lastPlayerDirection = 'left'; }
-        else if (this.cursors.right.isDown || this.touchControls.right) { this.player.setVelocityX(speed); this.lastPlayerDirection = 'right'; }
-        if (this.cursors.up.isDown || this.touchControls.up) { this.player.setVelocityY(-speed); this.lastPlayerDirection = 'up'; }
-        else if (this.cursors.down.isDown || this.touchControls.down) { this.player.setVelocityY(speed); this.lastPlayerDirection = 'down'; }
-        this.player.body.velocity.normalize().scale(speed);
+        // --- NEW MOVEMENT LOGIC ---
+        // We now set acceleration instead of velocity. Drag will handle the stopping.
+        const acceleration = 800; // The rate of acceleration
+        this.player.setAcceleration(0);
+
+        if (this.cursors.left.isDown || this.touchControls.left) {
+            this.player.setAccelerationX(-acceleration);
+            this.lastPlayerDirection = 'left';
+        } else if (this.cursors.right.isDown || this.touchControls.right) {
+            this.player.setAccelerationX(acceleration);
+            this.lastPlayerDirection = 'right';
+        }
+
+        if (this.cursors.up.isDown || this.touchControls.up) {
+            this.player.setAccelerationY(-acceleration);
+            this.lastPlayerDirection = 'up';
+        } else if (this.cursors.down.isDown || this.touchControls.down) {
+            this.player.setAccelerationY(acceleration);
+            this.lastPlayerDirection = 'down';
+        }
     }
 
     handlePlayerAttack() {
