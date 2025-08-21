@@ -150,7 +150,7 @@ class StartScene extends Phaser.Scene {
     create() {
         this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, '16 Pixel Dungeon', { ...textStyle, fontSize: '24px' }).setOrigin(0.5);
         this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Arrow Keys to Move | Space to Attack', textStyle).setOrigin(0.5);
-        this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, 'Collect artifacts | Kill monsters for health', textStyle).setOrigin(0.5);
+        this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, 'Collect 20 artifacts | Monsters drop health', textStyle).setOrigin(0.5);
         const startButton = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 40, 'Click or tap to Start', { ...textStyle, fill: '#00ffff' }).setOrigin(0.5);
         startButton.setInteractive();
         startButton.on('pointerdown', () => {
