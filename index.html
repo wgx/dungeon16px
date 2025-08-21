@@ -3,788 +3,397 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dungon-io</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <title>Phaser Rogue-like</title>
+    <!-- We are loading the Phaser 3 framework from a Content Delivery Network (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
-        body {
-            font-family: 'Press Start 2P', cursive;
+        /* Basic CSS to center the game canvas on the page */
+        html, body {
+            height: 100%;
+            margin: 0;
             background-color: #1a1a1a;
-            color: #e0e0e0;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            box-sizing: border-box;
-        }
-        #gameContainer {
-            position: relative;
-            width: 100%;
-            max-width: 800px;
-            aspect-ratio: 4 / 3;
-            box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
-            border: 3px solid #ffd700;
-            border-radius: 10px;
-            overflow: hidden;
         }
         canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-            /* New Dungeon Background */
-            background-color: #3d3d3d;
-            background-image: url('data:image/svg+xml;utf8,<svg width="32" height="32" xmlns="http://www.w3.org/2000/svg"><rect width="32" height="32" fill="%233a3a3a"/><rect x="16" y="0" width="1" height="32" fill="%232f2f2f"/><rect x="0" y="16" width="32" height="1" fill="%232f2f2f"/></svg>');
-            border-radius: 7px;
-        }
-        .screen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.9);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            padding: 20px;
-            box-sizing: border-box;
-            z-index: 10;
-        }
-        .screen h1 {
-            color: #ffd700;
-            margin-bottom: 20px;
-            font-size: 2.5rem;
-            text-shadow: 2px 2px #c00;
-        }
-        .screen p {
-            margin-bottom: 20px;
-            line-height: 1.5;
-        }
-        .stat-btn, .action-btn {
-            background-color: #ffd700;
-            color: #1a1a1a;
-            border: 2px solid #a07b00;
-            padding: 10px 15px;
-            margin: 5px;
-            cursor: pointer;
-            font-family: 'Press Start 2P', cursive;
-            border-radius: 5px;
-            transition: all 0.2s;
-        }
-        .stat-btn:hover, .action-btn:hover {
-            background-color: #ffec80;
-            transform: translateY(-2px);
-        }
-        .stat-btn:disabled {
-            background-color: #555;
-            color: #888;
-            cursor: not-allowed;
-            border-color: #444;
-        }
-        #gameStats {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.5);
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 12px;
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: space-around;
-            gap: 10px;
-            z-index: 5;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
         }
     </style>
 </head>
 <body>
-    <div id="gameContainer">
-        <canvas id="gameCanvas"></canvas>
-        
-        <div id="gameStats" style="display: none;">
-            <span>LVL: <span id="level">1</span></span>
-            <span>XP: <span id="xp">0</span>/<span id="xpNext">100</span></span>
-            <span>HP: <span id="health">100</span>/<span id="maxHealth">100</span></span>
-            <span>STR: <span id="strength">5</span></span>
-            <span>INT: <span id="intelligence">5</span></span>
-            <span>LCK: <span id="luck">5</span></span>
-            <span class="text-yellow-300">Artifacts: <span id="artifacts">0</span>/20</span>
-        </div>
-        
-        <div id="startScreen" class="screen">
-            <h1>DUNGON-IO</h1>
-            <p>Collect 20 artifacts from the dungeon depths to win!</p>
-            <p class="text-xs text-gray-400 mb-4">Move: WASD/Arrows | Attack: Space/Enter</p>
-            <div class="space-y-4 mb-4">
-                <div class="flex items-center justify-center space-x-2">
-                    <label class="w-40 text-right">Strength:</label>
-                    <button class="stat-btn subtract" data-stat="strength" disabled>-</button>
-                    <span id="strengthPoints" class="w-8 text-center">5</span>
-                    <button class="stat-btn add" data-stat="strength">+</button>
-                </div>
-                <div class="flex items-center justify-center space-x-2">
-                    <label class="w-40 text-right">Intelligence:</label>
-                    <button class="stat-btn subtract" data-stat="intelligence" disabled>-</button>
-                    <span id="intelligencePoints" class="w-8 text-center">5</span>
-                    <button class="stat-btn add" data-stat="intelligence">+</button>
-                </div>
-                <div class="flex items-center justify-center space-x-2">
-                    <label class="w-40 text-right">Luck:</label>
-                    <button class="stat-btn subtract" data-stat="luck" disabled>-</button>
-                    <span id="luckPoints" class="w-8 text-center">5</span>
-                    <button class="stat-btn add" data-stat="luck">+</button>
-                </div>
-            </div>
-            <div id="pointsRemaining" class="mb-6 text-yellow-400">Points remaining: <span id="startingPoints">5</span></div>
-            <button id="startGame" class="action-btn">Start Game</button>
-        </div>
-        
-        <div id="levelUpScreen" class="screen" style="display: none;">
-            <h1>Level Up!</h1>
-            <p>You feel stronger! Choose an attribute to improve.</p>
-            <div class="flex space-x-4">
-               <button class="action-btn levelUp" data-stat="strength">Strength +1</button>
-               <button class="action-btn levelUp" data-stat="intelligence">Intelligence +1</button>
-               <button class="action-btn levelUp" data-stat="luck">Luck +1</button>
-            </div>
-        </div>
-        
-        <div id="deathModal" class="screen" style="display: none;">
-            <h1>You Have Perished</h1>
-            <p>Your adventure has come to a premature end.</p>
-            <button id="restartGameBtn" class="action-btn">Try Again</button>
-        </div>
 
-        <div id="winScreen" class="screen" style="display: none;">
-            <h1 class="text-green-400">You Are Victorious!</h1>
-            <p>You have collected all the artifacts and escaped the dungeon!</p>
-            <button id="playAgainBtn" class="action-btn">Play Again</button>
-        </div>
-    </div>
+<script>
+// --- GAME CONFIGURATION ---
+const TILE_SIZE = 16;
+const MAP_WIDTH_TILES = 32;
+const MAP_HEIGHT_TILES = 32;
+const GAME_WIDTH = MAP_WIDTH_TILES * TILE_SIZE;
+const GAME_HEIGHT = MAP_HEIGHT_TILES * TILE_SIZE;
 
-    <script>
-        // --- DOM Elements ---
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const gameContainer = document.getElementById('gameContainer');
+// --- MAP GENERATOR ---
+// This class procedurally generates a new map for each level.
+class MapGenerator {
+    constructor(width, height) {
+        this.width = width;
+        this.height = height;
+    }
 
-        // --- Game Constants ---
-        const TILE_SIZE = 32;
-        const PLAYER_SIZE = 24;
-        const MONSTER_SIZE = 24;
-        const ATTACK_RADIUS = 50;
-        const ATTACK_COOLDOWN = 500; // ms
-        const XP_LEVELS = [0, 100, 250, 450, 700, 1000, 1500, 2500, 4000, 6000, 10000];
-        const TOTAL_ARTIFACTS = 20;
+    // Main generation function
+    generate() {
+        // 1. Start with a grid full of walls
+        const grid = Array.from({ length: this.height }, () => Array(this.width).fill('1'));
 
-        // --- Game State ---
-        let player;
-        let currentLevel = 1;
-        let artifactsCollected = 0;
-        let currentMap = [];
-        let monsters = [];
-        let exits = [];
-        let collectibles = [];
-        let artifacts = [];
-        let lastAttackTime = 0;
-        let lastLavaDamageTime = 0;
-        let lastContactDamageTime = 0;
-        const keys = {};
-        let gameState = 'START'; // START, PLAYING, LEVELUP, GAMEOVER, WIN
+        // 2. Carve out floor space using a "Drunkard's Walk" algorithm
+        let walkerX = Math.floor(this.width / 2);
+        let walkerY = Math.floor(this.height / 2);
+        const floorTilesToCarve = (this.width * this.height) * 0.4; // Target 40% floor space
+        let floorsCarved = 0;
 
-        // --- Image Assets ---
-        const imageCache = {};
-
-        function createSvgImage(svgString) {
-            if (imageCache[svgString]) {
-                return imageCache[svgString];
+        while (floorsCarved < floorTilesToCarve) {
+            if (grid[walkerY][walkerX] === '1') {
+                grid[walkerY][walkerX] = '0';
+                floorsCarved++;
             }
-            const img = new Image();
-            img.src = `data:image/svg+xml;utf8,${encodeURIComponent(svgString)}`;
-            imageCache[svgString] = img;
-            return img;
+
+            const direction = Math.floor(Math.random() * 4);
+            if (direction === 0 && walkerX > 1) walkerX--;
+            else if (direction === 1 && walkerX < this.width - 2) walkerX++;
+            else if (direction === 2 && walkerY > 1) walkerY--;
+            else if (direction === 3 && walkerY < this.height - 2) walkerY++;
         }
 
-        // --- D&D STYLE GRAPHICS ---
-        const playerImg = createSvgImage('<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L4 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-8-3zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V13H5V6.3l7-3.11v10.8z" fill="#c0c0c0"/><path d="M12 13H5V6.3l7-3.11v10.8z" fill="#f0f0f0"/></svg>');
-        const wallImg = createSvgImage('<svg width="32" height="32" xmlns="http://www.w3.org/2000/svg"><rect width="32" height="32" fill="#6b6b6b"/><path d="M0 1 H32 M0 31 H32 M1 0 V32 M31 0 V32" stroke="#4a4a4a" stroke-width="2"/><path d="M2 2 L30 30 M30 2 L2 30" stroke="#5a5a5a" stroke-width="0.5"/></svg>');
-        const healImg = createSvgImage('<svg width="24" height="24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="11" fill="#fff" stroke="#d4af37" stroke-width="2"/><path d="M13 7h-2v4H7v2h4v4h2v-4h4v-2h-4V7z" fill="#d4af37"/></svg>');
-        const exitImg = createSvgImage('<svg width="32" height="32" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="2" width="24" height="28" rx="2" fill="#654321"/><rect x="6" y="4" width="20" height="24" fill="#8b4513"/><rect x="10" y="2" width="12" height="28" fill="none" stroke="#3d2817" stroke-width="2"/><circle cx="24" cy="16" r="1.5" fill="#3d2817"/></svg>');
-        const lavaImg = createSvgImage('<svg width="32" height="32" xmlns="http://www.w3.org/2000/svg"><rect width="32" height="32" fill="#ff4500"/><circle cx="8" cy="8" r="4" fill="#ff6347"/><circle cx="24" cy="24" r="5" fill="#ff6347"/><circle cx="16" cy="18" r="6" fill="#ff8c00"/><circle cx="28" cy="6" r="3" fill="#ff8c00"/></svg>');
-        const artifactImg = createSvgImage('<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="#ffd700" stroke="#b8860b" stroke-width="1.5"/></svg>');
-        const monsterSVGs = [
-            // Level 1-2: Goblin
-            '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm-2.17 10.41l-1.42-1.42c-.39-.39-1.02-.39-1.41 0-.39.39-.39 1.02 0 1.41l2.83 2.83c.39.39 1.02.39 1.41 0l6.36-6.36c.39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0l-5.65 5.66zM4.41 11L3 12.41c-.39.39-.39 1.02 0 1.41l8.29 8.29c.39.39 1.02.39 1.41 0l8.29-8.29c.39-.39.39-1.02 0-1.41L19.59 11 12 18.59 4.41 11z" fill="#2e7d32"/></svg>',
-            // Level 3-4: Orc
-            '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-2-9h4v2h-4v-2zm0-4h4v2h-4V7z" fill="#795548"/><path d="M8 15h8v2H8z" fill="#d7ccc8"/></svg>',
-            // Level 5-6: Skeleton
-            '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2c-5.52 0-10 4.48-10 10s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="#e0e0e0"/><path d="M9.5 15.5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm5 0c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM12 7c-2.76 0-5 2.24-5 5h10c0-2.76-2.24-5-5-5z" fill="#212121"/></svg>',
-            // Level 7+: Demon
-            '<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5-9c.83 0 1.5.67 1.5 1.5S7.83 14 7 14s-1.5-.67-1.5-1.5S6.17 11 7 11zm5 0c.83 0 1.5.67 1.5 1.5S12.83 14 12 14s-1.5-.67-1.5-1.5S11.17 11 12 11zm5 0c.83 0 1.5.67 1.5 1.5S17.83 14 17 14s-1.5-.67-1.5-1.5S16.17 11 17 11zm-5 4c-2.33 0-4.31 1.46-5.11 3.5h10.22c-.8-2.04-2.78-3.5-5.11-3.5z" fill="#b71c1c"/></svg>'
-        ];
-        const monsterImgs = monsterSVGs.map(createSvgImage);
+        // 3. Get a list of all valid floor tile coordinates
+        const floorTiles = [];
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                if (grid[y][x] === '0') {
+                    floorTiles.push({ x, y });
+                }
+            }
+        }
+        
+        // --- Place Game Objects ---
+        this.placePlayer(grid, floorTiles);
+        this.placeExit(grid, floorTiles);
+        this.placeItems(grid, floorTiles, 'A', 1, 3); // Place 1-3 artifacts
+        this.placeItems(grid, floorTiles, 'S', 2, 5); // Place 2-5 slimes
+        this.placeItems(grid, floorTiles, 'B', 1, 4); // Place 1-4 bats
+        this.placeItems(grid, floorTiles, '2', 5, 15); // Place 5-15 lava tiles
 
-        // --- Game Initialization ---
-        window.onload = () => {
-            resizeCanvas();
-            window.addEventListener('resize', resizeCanvas);
-            setupStartScreen();
-            gameLoop();
+        return grid;
+    }
+
+    // Helper to place objects randomly on floor tiles
+    placeItems(grid, floorTiles, type, min, max) {
+        const count = Phaser.Math.Between(min, max);
+        for (let i = 0; i < count; i++) {
+            const randomIndex = Math.floor(Math.random() * floorTiles.length);
+            const tile = floorTiles[randomIndex];
+            if (grid[tile.y][tile.x] === '0') {
+                grid[tile.y][tile.x] = type;
+            }
+        }
+    }
+    
+    // Place the player, ensuring it's on a floor tile
+    placePlayer(grid, floorTiles) {
+        const randomIndex = Math.floor(Math.random() * floorTiles.length);
+        const tile = floorTiles.splice(randomIndex, 1)[0]; // Remove to avoid placing something else here
+        grid[tile.y][tile.x] = 'P';
+        this.playerStart = tile;
+    }
+
+    // Place the exit, ensuring it's far from the player
+    placeExit(grid, floorTiles) {
+        let bestTile = null;
+        let maxDist = -1;
+        for (const tile of floorTiles) {
+            const dist = Phaser.Math.Distance.Between(this.playerStart.x, this.playerStart.y, tile.x, tile.y);
+            if (dist > maxDist) {
+                maxDist = dist;
+                bestTile = tile;
+            }
+        }
+        grid[bestTile.y][bestTile.x] = 'E';
+    }
+}
+
+
+// --- UTILITY FUNCTIONS ---
+const textStyle = { 
+    font: '18px "Courier New", monospace', 
+    fill: '#ffffff',
+    stroke: '#000000',
+    strokeThickness: 4
+};
+
+// --- PHASER SCENES ---
+
+// 1. StartScene
+class StartScene extends Phaser.Scene {
+    constructor() { super({ key: 'StartScene' }); }
+    create() {
+        this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, 'Dungeon Crawler', { ...textStyle, fontSize: '24px' }).setOrigin(0.5);
+        this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Arrow Keys to Move | Space to Attack', textStyle).setOrigin(0.5);
+        this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, 'Collect artifacts | Kill monsters for health', textStyle).setOrigin(0.5);
+        const startButton = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 40, 'Click to Start', { ...textStyle, fill: '#00ffff' }).setOrigin(0.5);
+        startButton.setInteractive();
+        startButton.on('pointerdown', () => {
+            // Start the game with default stats
+            this.scene.start('GameScene', { hp: 100, artifacts: 0, level: 1 });
+        });
+    }
+}
+
+// 2. GameScene
+class GameScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'GameScene' });
+        this.player = null;
+        this.cursors = null;
+        this.monsters = null;
+        this.artifacts = null;
+        this.walls = null;
+        this.lava = null;
+        this.exits = null;
+        this.hpText = null;
+        this.artifactText = null;
+        this.levelText = null;
+        this.lastPlayerDirection = 'down';
+    }
+
+    // Receives data from the previous scene (or StartScene)
+    init(data) {
+        this.playerData = {
+            hp: data.hp || 100,
+            maxHp: 100,
+            artifacts: data.artifacts || 0,
+            level: data.level || 1,
+            attackPower: 10,
+            isAttacking: false,
+            isInvincible: false
         };
+    }
 
-        function resizeCanvas() {
-            const containerRect = gameContainer.getBoundingClientRect();
-            canvas.width = containerRect.width;
-            canvas.height = containerRect.height;
-            if (gameState === 'PLAYING') {
-                render();
+    preload() {
+        this.load.image('wall', 'assets/wall.png');
+        this.load.image('floor', 'assets/floor.png');
+        this.load.image('artifact', 'assets/artifact.png');
+        this.load.image('health', 'assets/health.png');
+        this.load.image('lava', 'assets/lava.png');
+        this.load.image('exit', 'assets/exit.png');
+        this.load.image('player', 'assets/player.png');
+        this.load.image('slime', 'assets/slime.png');
+        this.load.image('bat', 'assets/bat.png');
+        this.load.image('attack', 'assets/attack.png');
+    }
+
+    create() {
+        const mapGenerator = new MapGenerator(MAP_WIDTH_TILES, MAP_HEIGHT_TILES);
+        const mapLayout = mapGenerator.generate();
+
+        this.walls = this.physics.add.staticGroup();
+        this.lava = this.physics.add.staticGroup();
+        this.artifacts = this.physics.add.group();
+        this.monsters = this.physics.add.group();
+        this.healthPickups = this.physics.add.group();
+        this.exits = this.physics.add.staticGroup();
+
+        for (let y = 0; y < mapLayout.length; y++) {
+            for (let x = 0; x < mapLayout[y].length; x++) {
+                const tileChar = mapLayout[y][x];
+                const worldX = x * TILE_SIZE + TILE_SIZE / 2;
+                const worldY = y * TILE_SIZE + TILE_SIZE / 2;
+                this.add.image(worldX, worldY, 'floor').setDepth(-1);
+                if (tileChar === '1') { this.walls.create(worldX, worldY, 'wall'); }
+                else if (tileChar === '2') { this.lava.create(worldX, worldY, 'lava'); }
+                else if (tileChar === 'P') { this.player = this.physics.add.sprite(worldX, worldY, 'player'); }
+                else if (tileChar === 'A') { this.artifacts.add(this.physics.add.sprite(worldX, worldY, 'artifact')); }
+                else if (tileChar === 'S') { this.createMonster(worldX, worldY, 'slime', 30, 20, 20 + this.playerData.level); }
+                else if (tileChar === 'B') { this.createMonster(worldX, worldY, 'bat', 20, 40, 10 + this.playerData.level); }
+                else if (tileChar === 'E') { this.exits.create(worldX, worldY, 'exit'); }
             }
         }
 
-        // --- UI Setup ---
-        function setupStartScreen() {
-            let startingPoints = 5;
-            const attributes = { strength: 5, intelligence: 5, luck: 5 };
-            const pointsSpans = {
-                strength: document.getElementById('strengthPoints'),
-                intelligence: document.getElementById('intelligencePoints'),
-                luck: document.getElementById('luckPoints')
-            };
-            const remainingSpan = document.getElementById('startingPoints');
+        if (!this.player) { console.error("Player failed to spawn!"); return; }
 
-            function updateButtons() {
-                document.querySelectorAll('.add').forEach(btn => btn.disabled = (startingPoints === 0));
-                document.querySelectorAll('.subtract').forEach(btn => {
-                    const stat = btn.dataset.stat;
-                    btn.disabled = (attributes[stat] <= 1);
-                });
-            }
+        this.player.setCollideWorldBounds(true);
+        this.player.body.setSize(12, 12);
+        this.cursors = this.input.keyboard.createCursorKeys();
+        this.spaceBar = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
-            document.getElementById('startScreen').addEventListener('click', (e) => {
-                const target = e.target;
-                const stat = target.dataset.stat;
-                if (!stat) return;
-
-                if (target.classList.contains('add') && startingPoints > 0) {
-                    attributes[stat]++;
-                    startingPoints--;
-                } else if (target.classList.contains('subtract') && attributes[stat] > 1) {
-                    attributes[stat]--;
-                    startingPoints++;
-                }
-
-                pointsSpans[stat].textContent = attributes[stat];
-                remainingSpan.textContent = startingPoints;
-                updateButtons();
-            });
-
-            document.getElementById('startGame').onclick = () => {
-                initGame(attributes);
-            };
-        }
-
-        function setupLevelUpScreen() {
-            gameState = 'LEVELUP';
-            document.getElementById('levelUpScreen').style.display = 'flex';
-            
-            const levelUpHandler = (e) => {
-                if (e.target.classList.contains('levelUp')) {
-                    const stat = e.target.dataset.stat;
-                    player[stat]++;
-                    player.health = player.maxHealth; // Full heal on level up
-                    updateStatsDisplay();
-                    document.getElementById('levelUpScreen').style.display = 'none';
-                    gameState = 'PLAYING';
-                    document.getElementById('levelUpScreen').removeEventListener('click', levelUpHandler);
-                }
-            };
-            document.getElementById('levelUpScreen').addEventListener('click', levelUpHandler);
-        }
+        this.physics.add.collider(this.player, this.walls);
+        this.physics.add.collider(this.monsters, this.walls);
+        this.physics.add.collider(this.monsters, this.monsters);
+        this.physics.add.overlap(this.player, this.artifacts, this.collectArtifact, null, this);
+        this.physics.add.overlap(this.player, this.healthPickups, this.collectHealth, null, this);
+        this.physics.add.overlap(this.player, this.monsters, this.playerHit, null, this);
+        this.physics.add.overlap(this.player, this.lava, this.onLava, null, this);
+        this.physics.add.overlap(this.player, this.exits, this.goToNextLevel, null, this);
         
-        function restartGame() {
-            document.getElementById('deathModal').style.display = 'none';
-            document.getElementById('winScreen').style.display = 'none';
-            document.getElementById('startScreen').style.display = 'flex';
-            document.getElementById('gameStats').style.display = 'none';
-            gameState = 'START';
-            currentLevel = 1;
-            artifactsCollected = 0;
-        }
+        this.cameras.main.startFollow(this.player, true, 0.5, 0.5);
+        this.cameras.main.setBounds(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-        document.getElementById('restartGameBtn').onclick = restartGame;
-        document.getElementById('playAgainBtn').onclick = restartGame;
+        this.hpText = this.add.text(10, 10, '', textStyle).setScrollFactor(0);
+        this.artifactText = this.add.text(10, 25, '', textStyle).setScrollFactor(0);
+        this.levelText = this.add.text(10, 40, '', textStyle).setScrollFactor(0);
+        this.updateHUD();
+    }
 
+    update() {
+        if (!this.player || !this.player.active) return;
+        this.handlePlayerMovement();
+        this.handlePlayerAttack();
+        this.updateMonsters();
+        if (this.playerData.hp <= 0) { this.scene.start('GameOverScene'); }
+        if (this.playerData.artifacts >= 20) { this.scene.start('WinScene'); }
+    }
 
-        // --- Game Core ---
-        function initGame(attributes) {
-            player = {
-                x: canvas.width / 2,
-                y: canvas.height / 2,
-                width: PLAYER_SIZE,
-                height: PLAYER_SIZE,
-                speed: 3,
-                health: 100,
-                maxHealth: 100,
-                ...attributes,
-                xp: 0,
-                level: 1
-            };
-            
-            document.getElementById('startScreen').style.display = 'none';
-            document.getElementById('gameStats').style.display = 'flex';
-            gameState = 'PLAYING';
-            
-            generateLevel();
-            updateStatsDisplay();
-            
-            window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-            window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-        }
+    goToNextLevel(player, exit) {
+        this.scene.start('GameScene', {
+            hp: this.playerData.hp,
+            artifacts: this.playerData.artifacts,
+            level: this.playerData.level + 1
+        });
+    }
 
-        function updateStatsDisplay() {
-            if (!player) return;
-            document.getElementById('level').textContent = player.level;
-            document.getElementById('xp').textContent = player.xp;
-            document.getElementById('xpNext').textContent = XP_LEVELS[player.level];
-            document.getElementById('health').textContent = Math.max(0, Math.floor(player.health));
-            document.getElementById('maxHealth').textContent = player.maxHealth;
-            document.getElementById('strength').textContent = player.strength;
-            document.getElementById('intelligence').textContent = player.intelligence;
-            document.getElementById('luck').textContent = player.luck;
-            document.getElementById('artifacts').textContent = artifactsCollected;
-        }
+    createMonster(x, y, key, hp, speed, damage) {
+        const monster = this.physics.add.sprite(x, y, key);
+        monster.setData({ hp: hp, speed: speed, damage: damage, moveTimer: 0 });
+        monster.setCollideWorldBounds(true);
+        monster.body.setSize(12, 12);
+        this.monsters.add(monster);
+    }
 
-        function generateLevel() {
-            monsters = [];
-            exits = [];
-            collectibles = [];
-            artifacts = [];
-            
-            const cols = Math.floor(canvas.width / TILE_SIZE);
-            const rows = Math.floor(canvas.height / TILE_SIZE);
-            currentMap = Array.from({ length: rows }, () => Array(cols).fill(0));
+    handlePlayerMovement() {
+        this.player.setVelocity(0);
+        const speed = 100;
+        if (this.cursors.left.isDown) { this.player.setVelocityX(-speed); this.lastPlayerDirection = 'left'; }
+        else if (this.cursors.right.isDown) { this.player.setVelocityX(speed); this.lastPlayerDirection = 'right'; }
+        if (this.cursors.up.isDown) { this.player.setVelocityY(-speed); this.lastPlayerDirection = 'up'; }
+        else if (this.cursors.down.isDown) { this.player.setVelocityY(speed); this.lastPlayerDirection = 'down'; }
+        this.player.body.velocity.normalize().scale(speed);
+    }
 
-            for (let y = 0; y < rows; y++) {
-                for (let x = 0; x < cols; x++) {
-                    if (x === 0 || y === 0 || x === cols - 1 || y === rows - 1) {
-                        currentMap[y][x] = 1;
-                    } else if (Math.random() < 0.15) {
-                        currentMap[y][x] = 1;
-                    } else if (Math.random() < 0.07) {
-                        currentMap[y][x] = 3;
-                    }
-                }
+    handlePlayerAttack() {
+        if (Phaser.Input.Keyboard.JustDown(this.spaceBar) && !this.playerData.isAttacking) {
+            this.playerData.isAttacking = true;
+            const attackHitbox = this.add.sprite(this.player.x, this.player.y, 'attack').setAlpha(0.9);
+            this.physics.world.enable(attackHitbox);
+            attackHitbox.body.setSize(24, 24);
+            switch(this.lastPlayerDirection) {
+                case 'up': attackHitbox.setPosition(this.player.x, this.player.y - 16); break;
+                case 'down': attackHitbox.setPosition(this.player.x, this.player.y + 16); break;
+                case 'left': attackHitbox.setPosition(this.player.x - 16, this.player.y); break;
+                case 'right': attackHitbox.setPosition(this.player.x + 16, this.player.y); break;
             }
-
-            const numExits = 2 + Math.floor(Math.random() * 2);
-            if (numExits > 0) createExit(cols, rows, true);
-            for (let i = 1; i < numExits; i++) createExit(cols, rows, false);
-
-            placePlayerInClearSpot(cols, rows);
-
-            if (currentLevel > 1 && artifactsCollected < TOTAL_ARTIFACTS) {
-                createArtifact(cols, rows);
+            this.physics.add.overlap(attackHitbox, this.monsters, (box, monster) => { this.damageMonster(monster, this.playerData.attackPower); }, null, this);
+            this.time.delayedCall(150, () => { attackHitbox.destroy(); this.playerData.isAttacking = false; });
+        }
+    }
+    
+    updateMonsters() {
+        this.monsters.getChildren().forEach(monster => {
+            if (!monster.active) return;
+            const distanceToPlayer = Phaser.Math.Distance.Between(monster.x, monster.y, this.player.x, this.player.y);
+            const speed = monster.getData('speed');
+            if (distanceToPlayer < 100) { this.physics.moveToObject(monster, this.player, speed); }
+            else if (this.time.now > monster.getData('moveTimer')) {
+                monster.setData('moveTimer', this.time.now + 2000);
+                monster.setVelocity(Phaser.Math.Between(-speed, speed), Phaser.Math.Between(-speed, speed));
             }
+        });
+    }
 
-            const numMonsters = 5 + Math.floor(currentLevel * 1.5);
-            for (let i = 0; i < numMonsters; i++) createMonster(cols, rows);
-            const numCollectibles = 2 + Math.floor(Math.random() * 3);
-            for (let i = 0; i < numCollectibles; i++) createCollectible(cols, rows);
-        }
+    damageMonster(monster, amount) {
+        let hp = monster.getData('hp') - amount;
+        monster.setData('hp', hp);
+        monster.setTint(0xff0000);
+        if (hp <= 0) {
+            if (Phaser.Math.Between(1, 4) === 1) { this.healthPickups.add(this.physics.add.sprite(monster.x, monster.y, 'health')); }
+            monster.destroy();
+        } else { this.time.delayedCall(100, () => monster.clearTint()); }
+    }
 
-        function findClearSpot(cols, rows, minDistance = 0, from = {x: 0, y: 0}) {
-            let x, y, valid = false;
-            let attempts = 0;
-            while (!valid && attempts < 100) {
-                x = 1 + Math.floor(Math.random() * (cols - 2));
-                y = 1 + Math.floor(Math.random() * (rows - 2));
-                const dist = Math.sqrt((x - from.x)**2 + (y - from.y)**2);
-                if (currentMap[y]?.[x] === 0 && dist >= minDistance) {
-                    valid = true;
-                }
-                attempts++;
-            }
-            if (!valid) {
-                return { x: canvas.width / 2, y: canvas.height / 2};
-            }
-            return { x: x * TILE_SIZE + TILE_SIZE / 2, y: y * TILE_SIZE + TILE_SIZE / 2 };
-        }
+    playerHit(player, monster) {
+        if (this.playerData.isInvincible) return;
+        const damage = monster.getData('damage');
+        this.playerData.hp -= damage;
+        this.updateHUD();
+        const knockback = new Phaser.Math.Vector2(player.x - monster.x, player.y - monster.y).normalize().scale(150);
+        player.setVelocity(knockback.x, knockback.y);
+        this.playerData.isInvincible = true;
+        this.player.setAlpha(0.5);
+        this.time.delayedCall(1000, () => { if (this.player.active) { this.playerData.isInvincible = false; this.player.setAlpha(1); } });
+    }
 
-        function placePlayerInClearSpot(cols, rows) {
-            const pos = findClearSpot(cols, rows);
-            player.x = pos.x;
-            player.y = pos.y;
-            const pTileX = Math.floor(player.x / TILE_SIZE);
-            const pTileY = Math.floor(player.y / TILE_SIZE);
-            for(let i = -1; i <= 1; i++) {
-                for(let j = -1; j <= 1; j++) {
-                    if (currentMap[pTileY+i]?.[pTileX+j]) {
-                        currentMap[pTileY+i][pTileX+j] = 0;
-                    }
-                }
-            }
-        }
+    onLava(player, lavaTile) {
+        if (this.playerData.isInvincible) return;
+        this.playerData.hp -= 5;
+        this.updateHUD();
+        this.playerData.isInvincible = true;
+        this.player.setTint(0xff8c00);
+        this.time.delayedCall(500, () => { if (this.player.active) { this.playerData.isInvincible = false; this.player.clearTint(); } });
+    }
 
-        function createMonster(cols, rows) {
-            const playerTile = { x: Math.floor(player.x / TILE_SIZE), y: Math.floor(player.y / TILE_SIZE) };
-            const pos = findClearSpot(cols, rows, 5, playerTile);
-            
-            const monsterLevel = Math.max(1, currentLevel - 2 + Math.floor(Math.random() * 5));
-            const imgIndex = Math.min(monsterImgs.length - 1, Math.floor((monsterLevel-1) / 2));
+    collectArtifact(player, artifact) {
+        artifact.destroy();
+        this.playerData.artifacts++;
+        this.updateHUD();
+    }
+    
+    collectHealth(player, healthPickup) {
+        healthPickup.destroy();
+        this.playerData.hp = Math.min(this.playerData.maxHp, this.playerData.hp + 20);
+        this.updateHUD();
+    }
 
-            monsters.push({
-                x: pos.x, y: pos.y,
-                width: MONSTER_SIZE, height: MONSTER_SIZE,
-                speed: 1 + Math.random() * 0.5,
-                health: 30 + (monsterLevel * 15),
-                maxHealth: 30 + (monsterLevel * 15),
-                damage: 5 + (monsterLevel * 2),
-                xpValue: 10 + (monsterLevel * 5),
-                level: monsterLevel,
-                img: monsterImgs[imgIndex],
-                hitFlash: 0,
-            });
-        }
+    updateHUD() {
+        this.hpText.setText(`HP: ${this.playerData.hp} / ${this.playerData.maxHp}`).setAlpha(0.5);
+        this.artifactText.setText(`Artifacts: ${this.playerData.artifacts} / 20`).setAlpha(0.5);
+        this.levelText.setText(`Dungeon Level: ${this.playerData.level}`).setAlpha(0.5);
+    }
+}
 
-        function createExit(cols, rows, isGuaranteed = false) {
-            let x, y, side;
-            let attempts = 0;
-            let valid = false;
+// 3. GameOverScene
+class GameOverScene extends Phaser.Scene {
+    constructor() { super({ key: 'GameOverScene' }); }
+    create() {
+        this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20, 'Game Over', { ...textStyle, fontSize: '32px' }).setOrigin(0.5);
+        const restartButton = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, 'Click to Restart', { ...textStyle, fill: '#ffff00' }).setOrigin(0.5);
+        restartButton.setInteractive();
+        restartButton.on('pointerdown', () => { this.scene.start('GameScene'); });
+    }
+}
 
-            while(!valid && attempts < 50) {
-                side = Math.floor(Math.random() * 4);
-                if (side === 0) { x = 1 + Math.floor(Math.random() * (cols - 2)); y = 0; }
-                else if (side === 1) { x = cols - 1; y = 1 + Math.floor(Math.random() * (rows - 2)); }
-                else if (side === 2) { x = 1 + Math.floor(Math.random() * (cols - 2)); y = rows - 1; }
-                else { x = 0; y = 1 + Math.floor(Math.random() * (rows - 2)); }
-                
-                if (currentMap[y][x] !== 2) valid = true;
-                attempts++;
-            }
-            if (!valid) return;
-            
-            currentMap[y][x] = 2;
+// 4. WinScene
+class WinScene extends Phaser.Scene {
+    constructor() { super({ key: 'WinScene' }); }
+    create() {
+        this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20, 'You Win!', { ...textStyle, fontSize: '32px', fill: '#00ff00' }).setOrigin(0.5);
+        const playAgainButton = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, 'Click to Play Again', { ...textStyle, fill: '#00ff00' }).setOrigin(0.5);
+        playAgainButton.setInteractive();
+        playAgainButton.on('pointerdown', () => { this.scene.start('GameScene'); });
+    }
+}
 
-            if (isGuaranteed) {
-                if (side === 0 && y + 1 < rows) currentMap[y + 1][x] = 0;
-                else if (side === 1 && x - 1 >= 0) currentMap[y][x - 1] = 0;
-                else if (side === 2 && y - 1 >= 0) currentMap[y - 1][x] = 0;
-                else if (side === 3 && x + 1 < cols) currentMap[y][x + 1] = 0;
-            }
+// --- PHASER GAME CONFIGURATION ---
+const config = {
+    type: Phaser.AUTO,
+    width: GAME_WIDTH,
+    height: GAME_HEIGHT,
+    pixelArt: true,
+    physics: {
+        default: 'arcade',
+        arcade: { debug: false }
+    },
+    scene: [StartScene, GameScene, GameOverScene, WinScene]
+};
 
-            exits.push({
-                x: x * TILE_SIZE, y: y * TILE_SIZE,
-                width: TILE_SIZE, height: TILE_SIZE
-            });
-        }
+const game = new Phaser.Game(config);
 
-        function createCollectible(cols, rows) {
-            const pos = findClearSpot(cols, rows);
-            collectibles.push({
-                ...pos,
-                width: 24, height: 24,
-                healAmount: 25
-            });
-        }
-
-        function createArtifact(cols, rows) {
-            const pos = findClearSpot(cols, rows);
-            artifacts.push({
-                ...pos,
-                width: 24, height: 24,
-            });
-        }
-        
-        // --- Game Loop ---
-        function gameLoop() {
-            if (gameState === 'PLAYING') {
-                update();
-            }
-            render();
-            requestAnimationFrame(gameLoop);
-        }
-
-        function update() {
-            handlePlayerMovement();
-            handleHazardDamage();
-            handleMonsterAI();
-            handleCombat();
-            handleCollisions();
-            checkLevelUp();
-        }
-        
-        function handleHazardDamage() {
-            const playerTile = getTileAt(player.x, player.y);
-            if (playerTile === 3) {
-                const now = Date.now();
-                if (now - lastLavaDamageTime > 1000) {
-                    lastLavaDamageTime = now;
-                    player.health -= 5;
-                    updateStatsDisplay();
-                    if (player.health <= 0) {
-                        gameState = 'GAMEOVER';
-                        document.getElementById('deathModal').style.display = 'flex';
-                    }
-                }
-            }
-        }
-
-        function isCollidingWithWall(x, y) {
-            const collisionWidth = player.width - 8;
-            const collisionHeight = player.height - 8;
-            const p_left = x - collisionWidth / 2;
-            const p_right = x + collisionWidth / 2;
-            const p_top = y - collisionHeight / 2;
-            const p_bottom = y + collisionHeight / 2;
-
-            const topLeftTile = getTileAt(p_left, p_top);
-            const topRightTile = getTileAt(p_right, p_top);
-            const bottomLeftTile = getTileAt(p_left, p_bottom);
-            const bottomRightTile = getTileAt(p_right, p_bottom);
-
-            return topLeftTile === 1 || topRightTile === 1 || bottomLeftTile === 1 || bottomRightTile === 1;
-        }
-
-        function handlePlayerMovement() {
-            let dx = 0;
-            let dy = 0;
-
-            if (keys['w'] || keys['arrowup']) dy -= player.speed;
-            if (keys['s'] || keys['arrowdown']) dy += player.speed;
-            if (keys['a'] || keys['arrowleft']) dx -= player.speed;
-            if (keys['d'] || keys['arrowright']) dx += player.speed;
-
-            if (dx !== 0 && !isCollidingWithWall(player.x + dx, player.y)) {
-                player.x += dx;
-            }
-            if (dy !== 0 && !isCollidingWithWall(player.x, player.y + dy)) {
-                player.y += dy;
-            }
-        }
-        
-        function handleMonsterAI() {
-            monsters.forEach(monster => {
-                if (monster.hitFlash > 0) monster.hitFlash--;
-
-                const dx = player.x - monster.x;
-                const dy = player.y - monster.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-
-                if (distance < TILE_SIZE * 8 && distance > PLAYER_SIZE) {
-                    const angle = Math.atan2(dy, dx);
-                    const nextX = monster.x + Math.cos(angle) * monster.speed;
-                    const nextY = monster.y + Math.sin(angle) * monster.speed;
-
-                    if (getTileAt(nextX, nextY) !== 1) {
-                        monster.x = nextX;
-                        monster.y = nextY;
-                    }
-                }
-            });
-        }
-
-        function handleCombat() {
-            const now = Date.now();
-            monsters.forEach(monster => {
-                const dx = player.x - monster.x;
-                const dy = player.y - monster.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-
-                if (distance < (MONSTER_SIZE / 2 + PLAYER_SIZE / 2) && now - lastContactDamageTime > 500) {
-                     lastContactDamageTime = now;
-                     const dodgeChance = player.luck * 0.01;
-                     if (Math.random() > dodgeChance) {
-                         player.health -= monster.damage;
-                         updateStatsDisplay();
-                         if (player.health <= 0) {
-                             gameState = 'GAMEOVER';
-                             document.getElementById('deathModal').style.display = 'flex';
-                         }
-                     }
-                }
-            });
-
-            if (!(keys[' '] || keys['enter'])) return;
-
-            if (now - lastAttackTime < ATTACK_COOLDOWN) return;
-            
-            lastAttackTime = now;
-
-            monsters.forEach(monster => {
-                const dx = player.x - monster.x;
-                const dy = player.y - monster.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-
-                if (distance < ATTACK_RADIUS) {
-                    const damageMultiplier = 1 + (player.strength * 0.1);
-                    const critChance = player.luck * 0.02;
-                    let damage = 10 * damageMultiplier;
-                    if (Math.random() < critChance) damage *= 2;
-                    
-                    monster.health -= Math.floor(damage);
-                    monster.hitFlash = 10;
-                }
-            });
-
-            const aliveMonsters = monsters.filter(m => m.health > 0);
-            const deadMonsters = monsters.filter(m => m.health <= 0);
-            deadMonsters.forEach(dead => player.xp += dead.xpValue);
-            monsters = aliveMonsters;
-            updateStatsDisplay();
-        }
-        
-        function handleCollisions() {
-            for (const exit of exits) {
-                if (checkRectCollision(player, exit)) {
-                    currentLevel++;
-                    generateLevel();
-                    return; 
-                }
-            }
-            for (let i = collectibles.length - 1; i >= 0; i--) {
-                const item = collectibles[i];
-                if (checkRectCollision(player, item)) {
-                    player.health = Math.min(player.maxHealth, player.health + item.healAmount);
-                    collectibles.splice(i, 1);
-                    updateStatsDisplay();
-                }
-            }
-            for (let i = artifacts.length - 1; i >= 0; i--) {
-                const artifact = artifacts[i];
-                if (checkRectCollision(player, artifact)) {
-                    artifactsCollected++;
-                    artifacts.splice(i, 1);
-                    updateStatsDisplay();
-                    if (artifactsCollected >= TOTAL_ARTIFACTS) {
-                        gameState = 'WIN';
-                        document.getElementById('winScreen').style.display = 'flex';
-                    }
-                }
-            }
-        }
-        
-        function checkLevelUp() {
-            if (player.level < XP_LEVELS.length -1 && player.xp >= XP_LEVELS[player.level]) {
-                player.xp -= XP_LEVELS[player.level];
-                player.level++;
-                player.maxHealth += 10;
-                setupLevelUpScreen();
-            }
-        }
-
-        // --- Rendering ---
-        function render() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            if (gameState !== 'START') {
-                drawMap();
-                drawEntities(collectibles, healImg);
-                drawEntities(artifacts, artifactImg);
-                drawMonsters();
-                drawPlayer();
-                if (gameState === 'PLAYING' && (keys[' '] || keys['enter'])) {
-                    drawAttackRadius();
-                }
-            }
-        }
-
-        function drawMap() {
-            const cols = Math.floor(canvas.width / TILE_SIZE);
-            const rows = Math.floor(canvas.height / TILE_SIZE);
-
-            for (let y = 0; y < rows; y++) {
-                for (let x = 0; x < cols; x++) {
-                    const tileType = currentMap[y]?.[x];
-                    if (tileType === 1) {
-                        ctx.drawImage(wallImg, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                    } else if (tileType === 2) {
-                        ctx.drawImage(exitImg, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                    } else if (tileType === 3) {
-                        ctx.drawImage(lavaImg, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                    }
-                }
-            }
-        }
-
-        function drawEntities(entities, img) {
-            entities.forEach(entity => {
-                ctx.drawImage(img, entity.x - entity.width / 2, entity.y - entity.height / 2, entity.width, entity.height);
-            });
-        }
-        
-        function drawMonsters() {
-            monsters.forEach(monster => {
-                ctx.save();
-                if (monster.hitFlash > 0) {
-                    ctx.filter = 'brightness(2)';
-                }
-                ctx.drawImage(monster.img, monster.x - monster.width / 2, monster.y - monster.height / 2, monster.width, monster.height);
-                ctx.restore();
-
-                drawHealthBar(monster, monster.y - monster.height / 2 - 8);
-                drawText(`L${monster.level}`, monster.x, monster.y - monster.height / 2 - 12, 10, '#fff');
-            });
-        }
-
-        function drawPlayer() {
-            if (!player) return;
-            ctx.drawImage(playerImg, player.x - player.width / 2, player.y - player.height / 2, player.width, player.height);
-            drawHealthBar(player, player.y - player.height / 2 - 8);
-        }
-
-        function drawAttackRadius() {
-            ctx.beginPath();
-            ctx.arc(player.x, player.y, ATTACK_RADIUS, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(255, 215, 0, 0.4)';
-            ctx.fillStyle = 'rgba(255, 215, 0, 0.1)';
-            ctx.lineWidth = 2;
-            ctx.fill();
-            ctx.stroke();
-        }
-
-        function drawHealthBar(entity, yPos) {
-            const barWidth = entity.width * 1.5;
-            const healthPercent = Math.max(0, entity.health / entity.maxHealth);
-            ctx.fillStyle = '#333';
-            ctx.fillRect(entity.x - barWidth / 2, yPos, barWidth, 5);
-            ctx.fillStyle = healthPercent > 0.5 ? '#5d5' : (healthPercent > 0.25 ? '#dd5' : '#d55');
-            ctx.fillRect(entity.x - barWidth / 2, yPos, barWidth * healthPercent, 5);
-        }
-
-        function drawText(text, x, y, size = 12, color = '#fff') {
-            ctx.fillStyle = color;
-            ctx.font = `${size}px 'Press Start 2P'`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText(text, x, y);
-        }
-
-        // --- Utility Functions ---
-        function getTileAt(px, py) {
-            const tileX = Math.floor(px / TILE_SIZE);
-            const tileY = Math.floor(py / TILE_SIZE);
-            return currentMap[tileY]?.[tileX];
-        }
-
-        function checkRectCollision(rect1, rect2) {
-            const r1_left = rect1.x - rect1.width / 2;
-            const r1_right = rect1.x + rect1.width / 2;
-            const r1_top = rect1.y - rect1.height / 2;
-            const r1_bottom = rect1.y + rect1.height / 2;
-
-            const r2_left = rect2.x - rect2.width / 2;
-            const r2_right = rect2.x + rect2.width / 2;
-            const r2_top = rect2.y - rect2.height / 2;
-            const r2_bottom = rect2.y + rect2.height / 2;
-
-            return r1_left < r2_right && r1_right > r2_left && r1_top < r2_bottom && r1_bottom > r2_top;
-        }
-
-    </script>
+</script>
 </body>
 </html>
