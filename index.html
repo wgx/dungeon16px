@@ -62,18 +62,28 @@ class MapGenerator {
         let walkerY = Math.floor(this.height / 2);
         const floorTilesToCarve = (this.width * this.height) * 0.33; // Target 33% floor space
         let floorsCarved = 0;
+        let lastDirection = -1; // -1 means no initial direction
 
         while (floorsCarved < floorTilesToCarve) {
             if (grid[walkerY][walkerX] === '1') {
                 grid[walkerY][walkerX] = '0';
                 floorsCarved++;
             }
+            
+            let direction;
+            // 60% chance to continue in the same direction
+            if (lastDirection !== -1 && Math.random() < 0.6) {
+                direction = lastDirection;
+            } else {
+                direction = Math.floor(Math.random() * 4);
+            }
 
-            const direction = Math.floor(Math.random() * 4);
             if (direction === 0 && walkerX > 1) walkerX--;
             else if (direction === 1 && walkerX < this.width - 2) walkerX++;
             else if (direction === 2 && walkerY > 1) walkerY--;
             else if (direction === 3 && walkerY < this.height - 2) walkerY++;
+            
+            lastDirection = direction; // Remember the last direction for the next step
         }
 
         // 3. Get a list of all valid floor tile coordinates
