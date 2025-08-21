@@ -28,7 +28,7 @@
 // --- GAME CONFIGURATION ---
 const TILE_SIZE = 16;
 const MAP_WIDTH_TILES = 32;
-const MAP_HEIGHT_TILES = 32;
+const MAP_HEIGHT_TILES = 47;
 const GAME_WIDTH = MAP_WIDTH_TILES * TILE_SIZE;
 const GAME_HEIGHT = MAP_HEIGHT_TILES * TILE_SIZE;
 
@@ -135,7 +135,7 @@ const textStyle = {
 class StartScene extends Phaser.Scene {
     constructor() { super({ key: 'StartScene' }); }
     create() {
-        this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, 'Dungeon Crawler', { ...textStyle, fontSize: '24px' }).setOrigin(0.5);
+        this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, '16 Pixel Dungeon', { ...textStyle, fontSize: '24px' }).setOrigin(0.5);
         this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Arrow Keys to Move | Space to Attack', textStyle).setOrigin(0.5);
         this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, 'Collect artifacts | Kill monsters for health', textStyle).setOrigin(0.5);
         const startButton = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 40, 'Click to Start', { ...textStyle, fill: '#00ffff' }).setOrigin(0.5);
@@ -144,6 +144,9 @@ class StartScene extends Phaser.Scene {
             // Start the game with default stats
             this.scene.start('GameScene', { hp: 100, artifacts: 0, level: 1 });
         });
+
+
+
     }
 }
 
@@ -178,6 +181,17 @@ class GameScene extends Phaser.Scene {
     }
 
     preload() {
+        const graphics = this.make.graphics({ add: false });
+
+        // Attack Button
+        graphics.clear();
+        graphics.fillStyle(0xef5350, 0.6);
+        graphics.lineStyle(2, 0x000000, 0.8);
+        graphics.fillCircle(24, 24, 22);
+        graphics.strokeCircle(24, 24, 22);
+        graphics.generateTexture('attack_button', 48, 48);
+
+        this.load.image('dpad_arrow', 'assets/dpad.png');
         this.load.image('wall', 'assets/wall.png');
         this.load.image('floor', 'assets/floor.png');
         this.load.image('artifact', 'assets/artifact.png');
@@ -216,6 +230,44 @@ class GameScene extends Phaser.Scene {
                 else if (tileChar === 'E') { this.exits.create(worldX, worldY, 'exit'); }
             }
         }
+
+
+            // Initialize touch control state object
+            this.touchControls = { up: false, down: false, left: false, right: false, attack: false };
+
+            // Only create touch controls on non-desktop devices
+            // if (!this.sys.game.device.os.desktop) {
+                const dpadX = 60;
+                const dpadY = GAME_HEIGHT - 60;
+                const attackButtonX = GAME_WIDTH - 60;
+                const attackButtonY = GAME_HEIGHT - 60;
+
+                // Create D-Pad buttons
+                const up = this.add.sprite(dpadX, dpadY - 40, 'dpad_arrow').setScrollFactor(0).setInteractive().setAlpha(0.8);
+                const down = this.add.sprite(dpadX, dpadY + 40, 'dpad_arrow').setRotation(Math.PI).setScrollFactor(0).setInteractive().setAlpha(0.8);
+                const left = this.add.sprite(dpadX - 40, dpadY, 'dpad_arrow').setRotation(-Math.PI / 2).setScrollFactor(0).setInteractive().setAlpha(0.8);
+                const right = this.add.sprite(dpadX + 40, dpadY, 'dpad_arrow').setRotation(Math.PI / 2).setScrollFactor(0).setInteractive().setAlpha(0.8);
+
+                // Create Attack button
+                const attack = this.add.sprite(attackButtonX, attackButtonY, 'attack_button').setScrollFactor(0).setInteractive().setAlpha(0.8);
+
+                // D-Pad Pointer Events
+                const setDir = (btn, dir, state) => {
+                    btn.on(state, () => { this.touchControls[dir] = (state === 'pointerdown'); });
+                };
+                ['pointerdown', 'pointerup', 'pointerout'].forEach(state => {
+                    setDir(up, 'up', state);
+                    setDir(down, 'down', state);
+                    setDir(left, 'left', state);
+                    setDir(right, 'right', state);
+                });
+
+                // Attack Button Pointer Events
+                attack.on('pointerdown', () => { this.touchControls.attack = true; });
+                // Note: We don't need pointerup for attack, as we'll reset the flag after one use.
+            // }
+
+
 
         if (!this.player) { console.error("Player failed to spawn!"); return; }
 
@@ -270,15 +322,16 @@ class GameScene extends Phaser.Scene {
     handlePlayerMovement() {
         this.player.setVelocity(0);
         const speed = 100;
-        if (this.cursors.left.isDown) { this.player.setVelocityX(-speed); this.lastPlayerDirection = 'left'; }
-        else if (this.cursors.right.isDown) { this.player.setVelocityX(speed); this.lastPlayerDirection = 'right'; }
-        if (this.cursors.up.isDown) { this.player.setVelocityY(-speed); this.lastPlayerDirection = 'up'; }
-        else if (this.cursors.down.isDown) { this.player.setVelocityY(speed); this.lastPlayerDirection = 'down'; }
+        if (this.cursors.left.isDown || this.touchControls.left) { this.player.setVelocityX(-speed); this.lastPlayerDirection = 'left'; }
+        else if (this.cursors.right.isDown || this.touchControls.right) { this.player.setVelocityX(speed); this.lastPlayerDirection = 'right'; }
+        if (this.cursors.up.isDown || this.touchControls.up) { this.player.setVelocityY(-speed); this.lastPlayerDirection = 'up'; }
+        else if (this.cursors.down.isDown || this.touchControls.down) { this.player.setVelocityY(speed); this.lastPlayerDirection = 'down'; }
         this.player.body.velocity.normalize().scale(speed);
     }
 
     handlePlayerAttack() {
-        if (Phaser.Input.Keyboard.JustDown(this.spaceBar) && !this.playerData.isAttacking) {
+
+        if ((Phaser.Input.Keyboard.JustDown(this.spaceBar) || this.touchControls.attack) && !this.playerData.isAttacking) {
             this.playerData.isAttacking = true;
             const attackHitbox = this.add.sprite(this.player.x, this.player.y, 'attack').setAlpha(0.9);
             this.physics.world.enable(attackHitbox);
@@ -291,6 +344,7 @@ class GameScene extends Phaser.Scene {
             }
             this.physics.add.overlap(attackHitbox, this.monsters, (box, monster) => { this.damageMonster(monster, this.playerData.attackPower); }, null, this);
             this.time.delayedCall(150, () => { attackHitbox.destroy(); this.playerData.isAttacking = false; });
+            this.touchControls.attack = false; 
         }
     }
     
