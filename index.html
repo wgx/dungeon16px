@@ -208,6 +208,7 @@ class GameScene extends Phaser.Scene {
         this.load.image('wall', 'assets/wall.png');
         this.load.image('floor', 'assets/floor.png');
         this.load.image('floor_alt', 'assets/floor_alt.png');
+        this.load.image('floor_tree', 'assets/floor_tree.png');
         this.load.image('artifact', 'assets/artifact.png');
         this.load.image('health', 'assets/health.png');
         this.load.image('lava', 'assets/lava.png');
@@ -235,7 +236,17 @@ class GameScene extends Phaser.Scene {
                 const worldX = x * TILE_SIZE + TILE_SIZE / 2;
                 const worldY = y * TILE_SIZE + TILE_SIZE / 2;
                 // Place floor tiles everywhere first, choosing randomly between the two types
-                const floorType = (Math.random() > 0.8) ? 'floor_alt' : 'floor';
+                
+                let floorType;
+                const rand = Math.random();
+                if (rand < 0.9) {
+                    floorType = 'floor'; // 90% chance
+                } else if (rand < 0.95) {
+                    floorType = 'floor_alt'; // 5% chance
+                } else {
+                    floorType = 'floor_tree'; // 5% chance
+                }
+
                 this.add.image(worldX, worldY, floorType).setDepth(-1);
                 
                 if (tileChar === '1') { this.walls.create(worldX, worldY, 'wall'); }
