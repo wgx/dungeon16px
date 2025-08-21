@@ -15,6 +15,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            font-family: Menlo, Consolas, Monaco, Adwaita Mono, Liberation Mono, Lucida Console, monospace;
         }
         canvas {
             border-radius: 8px;
@@ -27,7 +28,7 @@
 </head>
 <body>
 
-    <div style="position: absolute; top: 1px; color: wheat;">
+    <div style="position: absolute; top: 1px; color: wheat; font-size: 12px;">
         made by <a href="https://willgrant.org" target="_blank" rel="noopener noreferrer">wgx</a> • 
         <a href="https://github.com/wgx/dungeon16px/" target="_blank" rel="noopener noreferrer">code on github</a> •
         <a href="https://ko-fi.com/wllgrnt" target="_blank" rel="noopener noreferrer">buy me a coffee</a> •
@@ -134,7 +135,8 @@ class MapGenerator {
 
 // --- UTILITY FUNCTIONS ---
 const textStyle = { 
-    font: '18px "Courier New", monospace', 
+    fontFamily: "monospace", 
+    fontSize: 12,
     fill: '#ffffff',
     stroke: '#000000',
     strokeThickness: 4
@@ -149,7 +151,7 @@ class StartScene extends Phaser.Scene {
         this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, '16 Pixel Dungeon', { ...textStyle, fontSize: '24px' }).setOrigin(0.5);
         this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Arrow Keys to Move | Space to Attack', textStyle).setOrigin(0.5);
         this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, 'Collect artifacts | Kill monsters for health', textStyle).setOrigin(0.5);
-        const startButton = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 40, 'Click to Start', { ...textStyle, fill: '#00ffff' }).setOrigin(0.5);
+        const startButton = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 40, 'Click or tap to Start', { ...textStyle, fill: '#00ffff' }).setOrigin(0.5);
         startButton.setInteractive();
         startButton.on('pointerdown', () => {
             // Start the game with default stats
