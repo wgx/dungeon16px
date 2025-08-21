@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Dungeon Crawler</title>
+    <style>
+        body { margin: 0; background-color: #000; overflow: hidden; }
+        canvas { display: block; }
+        .hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: monospace;
+            font-size: 16px;
+            text-shadow: 2px 2px #000;
+            pointer-events: none;
+        }
+        .crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 4px;
+            height: 4px;
+            background-color: white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-family: monospace;
+            text-align: center;
+        }
+        #startScreen h1 { font-size: 48px; }
+        #startScreen p { font-size: 18px; }
+        #startButton {
+            padding: 10px 20px;
+            font-size: 20px;
+            background-color: #00ffff;
+            color: black;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="startScreen">
+        <h1>3D Dungeon Crawler</h1>
+        <p>W, A, S, D to Move | Mouse to Look | Click to Attack</p>
+        <p>Collect 20 artifacts to win!</p>
+        <button id="startButton">Start Game</button>
+        <p style="margin-top: 40px; color: #ccc;">
+            <strong>Important:</strong> If textures are missing, you must run this from a local server.<br/>
+            E.g., by running `python -m http.server` in the project folder.
+        </p>
+    </div>
+    <div class="hud">
+        <div id="hpText">HP: 100 / 100</div>
+        <div id="artifactText">Artifacts: 0 / 20</div>
+        <div id="levelText">Dungeon Level: 1</div>
+    </div>
+    <div class="crosshair">+</div>
+
+    <!-- Import Three.js from a CDN -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+            }
+        }
+    </script>
+
+<script type="module">
+    import * as THREE from 'three';
+
+    // --- GAME CONFIGURATION ---
+    const TILE_SIZE = 1; 
+    const MAP_WIDTH_TILES = 30;
+    const MAP_HEIGHT_TILES = 47;
+    const WALL_HEIGHT = 1;
+
+    // --- ASSET PATHS ---
+    const ASSET_PATHS = {
+        wall: 'assets/wall.png',
+        floor: 'assets/floor.png',
+        floor_alt: 'assets/floor_alt.png',
+        slime: 'assets/slime.png',
+        bat: 'assets/bat.png',
+        artifact: 'assets/artifact.png',
+        health: 'assets/health.png',
+        exit: 'assets/exit.png',
+        lava: 'assets/lava.png'
+    };
+
+    // --- MAP GENERATOR (Identical to the Phaser version) ---
+    class MapGenerator {
+        constructor(width, height) {
+            this.width = width;
+            this.height = height;
+        }
+        generate() {
+            const grid = Array.from({ length: this.height }, () => Array(this.width).fill('1'));
+            let walkerX = Math.floor(this.width / 2);
+            let walkerY = Math.floor(this.height / 2);
+            const floorTilesToCarve = (this.width * this.height) * 0.33;
+            let floorsCarved = 0;
+            let lastDirection = -1;
+            while (floorsCarved < floorTilesToCarve) {
+                if (grid[walkerY][walkerX] === '1') {
+                    grid[walkerY][walkerX] = '0';
+                    floorsCarved++;
+                }
+                let direction;
+                if (lastDirection !== -1 && Math.random() < 0.6) {
+                    direction = lastDirection;
+                } else {
+                    direction = Math.floor(Math.random() * 4);
+                }
+                if (direction === 0 && walkerX > 1) walkerX--;
+                else if (direction === 1 && walkerX < this.width - 2) walkerX++;
+                else if (direction === 2 && walkerY > 1) walkerY--;
+                else if (direction === 3 && walkerY < this.height - 2) walkerY++;
+                lastDirection = direction;
+            }
+            const floorTiles = [];
+            for (let y = 0; y < this.height; y++) {
+                for (let x = 0; x < this.width; x++) {
+                    if (grid[y][x] === '0') {
+                        floorTiles.push({ x, y });
+                    }
+                }
+            }
+            this.placePlayer(grid, floorTiles);
+            this.placeExit(grid, floorTiles);
+            this.placeItems(grid, floorTiles, 'A', 1, 2);
+            this.placeItems(grid, floorTiles, 'S', 2, 5);
+            this.placeItems(grid, floorTiles, 'B', 1, 4);
+            this.placeItems(grid, floorTiles, '2', 5, 15);
+            return grid;
+        }
+        placeItems(grid, floorTiles, type, min, max) {
+            const count = Math.floor(Math.random() * (max - min + 1)) + min;
+            for (let i = 0; i < count; i++) {
+                if(floorTiles.length === 0) break;
+                const randomIndex = Math.floor(Math.random() * floorTiles.length);
+                const tile = floorTiles[randomIndex];
+                if (grid[tile.y][tile.x] === '0') {
+                    grid[tile.y][tile.x] = type;
+                }
+            }
+        }
+        placePlayer(grid, floorTiles) {
+            const randomIndex = Math.floor(Math.random() * floorTiles.length);
+            const tile = floorTiles.splice(randomIndex, 1)[0];
+            grid[tile.y][tile.x] = 'P';
+            this.playerStart = tile;
+        }
+        placeExit(grid, floorTiles) {
+            let bestTile = null;
+            let maxDist = -1;
+            for (const tile of floorTiles) {
+                const dist = Math.sqrt(Math.pow(this.playerStart.x - tile.x, 2) + Math.pow(this.playerStart.y - tile.y, 2));
+                if (dist > maxDist) {
+                    maxDist = dist;
+                    bestTile = tile;
+                }
+            }
+            if(bestTile) grid[bestTile.y][bestTile.x] = 'E';
+        }
+    }
+
+    // --- GAME STATE ---
+    let playerData = {
+        hp: 100, maxHp: 100, artifacts: 0, level: 1
+    };
+
+    // --- THREE.JS SETUP ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a1a);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // --- LIGHTING ---
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    directionalLight.position.set(5, 10, 7);
+    scene.add(directionalLight);
+    const playerLight = new THREE.PointLight(0xffffff, 0.8, 10);
+    camera.add(playerLight);
+    scene.add(camera);
+
+    // --- ASSET LOADING ---
+    const textureLoader = new THREE.TextureLoader();
+    const textures = {};
+    for (const key in ASSET_PATHS) {
+        textures[key] = textureLoader.load(ASSET_PATHS[key]);
+        textures[key].magFilter = THREE.NearestFilter;
+        textures[key].minFilter = THREE.NearestFilter;
+    }
+
+    // --- GEOMETRIES AND MATERIALS ---
+    const wallGeometry = new THREE.BoxGeometry(TILE_SIZE, WALL_HEIGHT, TILE_SIZE);
+    const wallMaterial = new THREE.MeshStandardMaterial({ map: textures.wall });
+    const floorGeometry = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE);
+    const floorMaterial = new THREE.MeshStandardMaterial({ map: textures.floor, side: THREE.DoubleSide });
+    const floorAltMaterial = new THREE.MeshStandardMaterial({ map: textures.floor_alt, side: THREE.DoubleSide });
+    const lavaMaterial = new THREE.MeshStandardMaterial({ map: textures.lava, side: THREE.DoubleSide });
+    
+    // --- GAME OBJECT ARRAYS ---
+    let walls = [];
+    let monsters = [];
+    let artifacts = [];
+    let healthPickups = [];
+    let exits = [];
+
+    // --- LEVEL GENERATION ---
+    function generateLevel() {
+        // Clear old level
+        [...walls, ...monsters, ...artifacts, ...healthPickups, ...exits].forEach(obj => scene.remove(obj));
+        walls = []; monsters = []; artifacts = []; healthPickups = []; exits = [];
+        
+        const mapGenerator = new MapGenerator(MAP_WIDTH_TILES, MAP_HEIGHT_TILES);
+        const mapLayout = mapGenerator.generate();
+
+        for (let y = 0; y < mapLayout.length; y++) {
+            for (let x = 0; x < mapLayout[y].length; x++) {
+                const tileChar = mapLayout[y][x];
+                const position = new THREE.Vector3(x * TILE_SIZE, 0, y * TILE_SIZE);
+
+                const floorType = (Math.random() > 0.8) ? floorAltMaterial : floorMaterial;
+                const floor = new THREE.Mesh(floorGeometry, tileChar === '2' ? lavaMaterial : floorType);
+                floor.rotation.x = -Math.PI / 2;
+                floor.position.copy(position);
+                scene.add(floor);
+
+                if (tileChar === '1') {
+                    const wall = new THREE.Mesh(wallGeometry, wallMaterial);
+                    wall.position.copy(position).y += WALL_HEIGHT / 2;
+                    scene.add(wall);
+                    walls.push(wall);
+                } else if (tileChar === 'P') {
+                    camera.position.set(position.x, WALL_HEIGHT / 2, position.z);
+                } else {
+                    let spriteTexture, type, data;
+                    if (tileChar === 'S') { spriteTexture = textures.slime; type = 'monster'; data = {hp: 30, damage: 5 + playerData.level}; }
+                    if (tileChar === 'B') { spriteTexture = textures.bat; type = 'monster'; data = {hp: 20, damage: 10 + playerData.level}; }
+                    if (tileChar === 'A') { spriteTexture = textures.artifact; type = 'artifact'; }
+                    if (tileChar === 'E') { spriteTexture = textures.exit; type = 'exit'; }
+                    if (tileChar === 'H') { spriteTexture = textures.health; type = 'health'; }
+                    
+                    if(spriteTexture) {
+                        const spriteMaterial = new THREE.SpriteMaterial({ map: spriteTexture, transparent: true });
+                        const sprite = new THREE.Sprite(spriteMaterial);
+                        sprite.position.copy(position).y += WALL_HEIGHT / 2;
+                        sprite.scale.set(0.7, 0.7, 1.0);
+                        sprite.userData = { type, ...data };
+                        scene.add(sprite);
+                        if(type === 'monster') monsters.push(sprite);
+                        if(type === 'artifact') artifacts.push(sprite);
+                        if(type === 'health') healthPickups.push(sprite);
+                        if(type === 'exit') exits.push(sprite);
+                    }
+                }
+            }
+        }
+        updateHUD();
+    }
+
+    // --- PLAYER CONTROLS & PHYSICS ---
+    const controls = { forward: false, backward: false, left: false, right: false };
+    const playerVelocity = new THREE.Vector3();
+    const playerSpeed = 3.0;
+    const playerBBox = new THREE.Box3();
+    const wallBBox = new THREE.Box3();
+
+    document.addEventListener('keydown', (e) => { if (e.code === 'KeyW') controls.forward = true; if (e.code === 'KeyS') controls.backward = true; if (e.code === 'KeyA') controls.left = true; if (e.code === 'KeyD') controls.right = true; });
+    document.addEventListener('keyup', (e) => { if (e.code === 'KeyW') controls.forward = false; if (e.code === 'KeyS') controls.backward = false; if (e.code === 'KeyA') controls.left = false; if (e.code === 'KeyD') controls.right = false; });
+    document.addEventListener('mousemove', (e) => { if (document.pointerLockElement === document.body) { camera.rotation.y -= e.movementX * 0.002; camera.rotation.x -= e.movementY * 0.002; camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x)); } });
+    
+    // --- COMBAT & INTERACTION ---
+    const raycaster = new THREE.Raycaster();
+    document.body.addEventListener('click', () => {
+        if (document.pointerLockElement !== document.body) {
+            document.body.requestPointerLock();
+        } else {
+            attack();
+        }
+    });
+
+    function attack() {
+        raycaster.setFromCamera({x: 0, y: 0}, camera);
+        const intersects = raycaster.intersectObjects(monsters);
+        if (intersects.length > 0) {
+            const monster = intersects[0].object;
+            monster.userData.hp -= 10;
+            if (monster.userData.hp <= 0) {
+                scene.remove(monster);
+                monsters = monsters.filter(m => m !== monster);
+            }
+        }
+    }
+
+    // --- HUD ---
+    function updateHUD() {
+        document.getElementById('hpText').innerText = `HP: ${playerData.hp} / ${playerData.maxHp}`;
+        document.getElementById('artifactText').innerText = `Artifacts: ${playerData.artifacts} / 20`;
+        document.getElementById('levelText').innerText = `Dungeon Level: ${playerData.level}`;
+    }
+
+    // --- GAME LOOP ---
+    const clock = new THREE.Clock();
+    const worldUp = new THREE.Vector3(0, 1, 0);
+    function animate() {
+        requestAnimationFrame(animate);
+        const delta = clock.getDelta();
+
+        // Player Movement
+        const forward = new THREE.Vector3();
+        camera.getWorldDirection(forward);
+        forward.y = 0; // Lock movement to the horizontal plane
+        forward.normalize();
+        
+        const right = new THREE.Vector3();
+        right.crossVectors(forward, worldUp).normalize();
+
+        let moveDirection = new THREE.Vector3();
+        if (controls.forward) moveDirection.add(forward);
+        if (controls.backward) moveDirection.sub(forward);
+        if (controls.left) moveDirection.sub(right);
+        if (controls.right) moveDirection.add(right);
+        
+        moveDirection.normalize();
+        
+        playerVelocity.lerp(moveDirection.multiplyScalar(playerSpeed), delta * 10);
+        
+        // Collision Detection
+        const moveVector = playerVelocity.clone().multiplyScalar(delta);
+        playerBBox.setFromCenterAndSize(camera.position.clone().add(moveVector), new THREE.Vector3(0.5, 0.5, 0.5));
+        let collision = false;
+        for (const wall of walls) {
+            wallBBox.setFromObject(wall);
+            if (playerBBox.intersectsBox(wallBBox)) {
+                collision = true;
+                break;
+            }
+        }
+        if (!collision) {
+            camera.position.add(moveVector);
+        }
+
+        // Monster AI & Interaction
+        monsters.forEach(monster => {
+            const distanceToPlayer = camera.position.distanceTo(monster.position);
+            if (distanceToPlayer < 10) {
+                const direction = new THREE.Vector3().subVectors(camera.position, monster.position).normalize();
+                direction.y = 0;
+                monster.position.add(direction.multiplyScalar(0.2 * delta));
+            }
+        });
+
+        // Item Collection
+        [...artifacts, ...healthPickups, ...exits].forEach(item => {
+             if (camera.position.distanceTo(item.position) < 0.5) {
+                if(item.userData.type === 'artifact') {
+                    playerData.artifacts++;
+                    scene.remove(item);
+                    artifacts = artifacts.filter(a => a !== item);
+                } else if(item.userData.type === 'health') {
+                    playerData.hp = Math.min(playerData.maxHp, playerData.hp + 20);
+                    scene.remove(item);
+                    healthPickups = healthPickups.filter(h => h !== item);
+                } else if(item.userData.type === 'exit') {
+                    playerData.level++;
+                    generateLevel();
+                }
+                updateHUD();
+             }
+        });
+
+        renderer.render(scene, camera);
+    }
+
+    // --- INITIALIZATION ---
+    document.getElementById('startButton').addEventListener('click', () => {
+        document.getElementById('startScreen').style.display = 'none';
+        generateLevel();
+        animate();
+    });
+
+</script>
+</body>
+</html>
