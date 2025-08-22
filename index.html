@@ -159,7 +159,7 @@ class StartScene extends Phaser.Scene {
     constructor() { super({ key: 'StartScene' }); }
     create() {
         this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, '16 Pixel Dungeon', { ...textStyle, fontSize: '24px' }).setOrigin(0.5);
-        this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Arrow Keys to Move | Space to Attack', textStyle).setOrigin(0.5);
+        this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Arrows / WASD to Move | Space to Attack', textStyle).setOrigin(0.5);
         this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, 'Collect 20 artifacts | Monsters drop health', textStyle).setOrigin(0.5);
         const startButton = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 40, 'Click or tap to Start', { ...textStyle, fill: '#00ffff' }).setOrigin(0.5);
         startButton.setInteractive();
@@ -318,7 +318,9 @@ class GameScene extends Phaser.Scene {
         this.player.body.setDrag(800); // The rate of deceleration (higher means faster stopping)
 
         this.cursors = this.input.keyboard.createCursorKeys();
+        this.keys = this.input.keyboard.addKeys('W,A,S,D');
         this.spaceBar = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        
 
         this.physics.add.collider(this.player, this.walls);
         this.physics.add.collider(this.monsters, this.walls);
@@ -379,18 +381,19 @@ class GameScene extends Phaser.Scene {
         const acceleration = 800; // The rate of acceleration
         this.player.setAcceleration(0);
 
-        if (this.cursors.left.isDown || this.touchControls.left) {
+        // UPDATED: Check for arrow keys OR WASD keys
+        if (this.cursors.left.isDown || this.touchControls.left || this.keys.A.isDown) {
             this.player.setAccelerationX(-acceleration);
             this.lastPlayerDirection = 'left';
-        } else if (this.cursors.right.isDown || this.touchControls.right) {
+        } else if (this.cursors.right.isDown || this.touchControls.right || this.keys.D.isDown) {
             this.player.setAccelerationX(acceleration);
             this.lastPlayerDirection = 'right';
         }
 
-        if (this.cursors.up.isDown || this.touchControls.up) {
+        if (this.cursors.up.isDown || this.touchControls.up || this.keys.W.isDown) {
             this.player.setAccelerationY(-acceleration);
             this.lastPlayerDirection = 'up';
-        } else if (this.cursors.down.isDown || this.touchControls.down) {
+        } else if (this.cursors.down.isDown || this.touchControls.down || this.keys.S.isDown) {
             this.player.setAccelerationY(acceleration);
             this.lastPlayerDirection = 'down';
         }
