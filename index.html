@@ -336,6 +336,16 @@ class GameScene extends Phaser.Scene {
         this.artifactText = this.add.text(10, 25, '', textStyle).setScrollFactor(0);
         this.levelText = this.add.text(10, 40, '', textStyle).setScrollFactor(0);
         this.updateHUD();
+
+        this.tweens.add({
+            targets: this.player,
+            alpha: 0.2,
+            ease: 'Cubic.easeInOut',
+            duration: 100,
+            repeat: 5,
+            yoyo: true
+        });
+
     }
 
     update() {
